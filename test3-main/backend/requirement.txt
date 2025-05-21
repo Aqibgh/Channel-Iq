@@ -1,6 +1,6 @@
 beautifulsoup4==4.13.3
 boto3==1.35.73
-clipsai==0.2.1
+clipsai
 customtkinter==5.2.2
 denoiser==0.1.5
 Django==5.1.3
@@ -10,12 +10,11 @@ google-api-python-client==2.142.0
 librosa==0.10.2.post1
 moviepy==1.0.3
 natsort==8.4.0
-numba==0.57.1
+numba
 numpy
 onnxruntime==1.20.1
-onnxruntime-directml==1.17.3
+onnxruntime-directml
 openai==1.66.2
-openai-whisper==20240930
 opencv-python==4.10.0.84
 Pillow==11.1.0
 pydub==0.25.1
@@ -24,8 +23,8 @@ requests==2.32.3
 scipy==1.15.2
 soundfile==0.12.1
 tiktoken==0.8.0
-torch==2.2.1
-torchaudio==2.2.1
+torch
+torchaudio
 tqdm==4.66.5
 ultralytics==8.3.55
 webrtcvad-wheels==2.0.14
@@ -43,3 +42,4 @@ google_auth_oauthlib
 deep_translator
 firebase-admin  
 SpeechRecognition
+whisperx

@@ -26,6 +26,7 @@ function Clipper() {
   const [showDashboard, setShowDashboard] = useState(true);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [loadingUser, setLoadingUser] = useState(false); // Initialize loadingUser to false
+  const [generatingReport, setGeneratingReport] = useState(false); // New state for report generation
 
 
   // Optional: Only keep these if used
@@ -563,6 +564,58 @@ try {
           setProcessing(false);
       }
   };
+
+    const handleGenerateReport = async () => {
+      if (!videoData) {
+        alert("❌ Please fetch a video first before generating a report.");
+        return;
+      }
+
+      if (!user || !user.uid) {
+        console.error("❌ User is not authenticated.");
+        alert("❌ Please login before generating a report.");
+        return;
+      }
+
+      setGeneratingReport(true);
+      
+      try {
+        const userId = user.uid;
+        const payload = {
+          videoURL,
+          userId,
+          userEmail: user?.email
+        };
+
+        const response = await axios.post(
+          "http://127.0.0.1:8000/api/generate-report/",
+          payload,
+          {
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+
+        if (response.data.status === "success") {
+          // Navigate to the report page with the report data
+          navigate("/report", {
+            state: {
+              videoURL,
+              videoTitle: videoData.title,
+              report: response.data.report,
+              thumbnail: videoData.thumbnail
+            },
+          });
+        } else {
+          throw new Error(response.data.error || "Failed to generate report");
+        }
+      } catch (error) {
+        console.error("❌ Report generation error:", error);
+        alert(`❌ Error generating report: ${error.response?.data?.error || error.message}`);
+      } finally {
+        setGeneratingReport(false);
+      }
+    };
+
     const featureIcons = {
         "Noise Reduction": (
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#55aaff" strokeWidth="2">
@@ -803,6 +856,15 @@ try {
                             className="btn btn--primary"
                           >
                             {processing ? "Processing..." : "Generate"}
+                          </button>
+                        </div>
+                        <div className="generate-report-btn">
+                          <button
+                            onClick={handleGenerateReport}
+                            disabled={generatingReport || !videoData}
+                            className="btn btn--secondary"
+                          >
+                            {generatingReport ? "Analyzing..." : "Generate Report"}
                           </button>
                         </div>
                         <div className="show-dashboard-btn">
