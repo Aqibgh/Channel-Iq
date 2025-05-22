@@ -1,5 +1,5 @@
 # Use multi-stage build for smaller final image
-FROM python:3.11-slim as builder
+FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04 as builder
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -11,11 +11,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
+    python3.11 \
+    python3.11-dev \
+    python3.11-tk \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/*
-RUN apt-get install python3.11-tk
 
 # Create and activate virtual environment
-RUN python -m venv /opt/venv
+RUN python3.11 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Install Python dependencies
@@ -24,13 +27,13 @@ COPY .env .env
 RUN mkdir -p /home/user/tmp
 ENV TMPDIR=/home/user/tmp
 RUN pip install --upgrade pip setuptools wheel && \
-RUN pip install --no-cache-dir PyYAML
-RUN pip install -no-cache-dir tf-keras
-RUN TMPDIR=/home/user/tmp pip install --no-cache-dir numpy torch torchaudio
-RUN TMPDIR=/home/user/tmp pip install --no-cache-dir -r requirement.txt
+    pip install --no-cache-dir PyYAML && \
+    pip install --no-cache-dir tf-keras && \
+    TMPDIR=/home/user/tmp pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 && \
+    TMPDIR=/home/user/tmp pip install --no-cache-dir -r requirement.txt
 
 # Final stage
-FROM python:3.11-slim
+FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -39,7 +42,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 \
     python3.11-dev \
+    python3.11-tk \
     libpq-dev \
     ffmpeg \
     libsm6 \
@@ -49,7 +54,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libsndfile1 \
     libmagic1 \
     portaudio19-dev \
-    python3.11-tk \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
