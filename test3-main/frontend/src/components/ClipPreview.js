@@ -4,6 +4,7 @@ import { db } from "../Firebase";
 import { collection, getDocs, serverTimestamp, doc, setDoc } from "firebase/firestore";
 import { UserContext } from "./UserContext";
 import "./clippreview.css";
+import { apiClient } from '../axios-use/api';
 
 function ClipPreview() {
     const { user, logout } = useContext(UserContext);
@@ -126,19 +127,13 @@ function ClipPreview() {
             const videoTitle = location.state?.videoTitle || "Untitled Video";
     
             const isSEOIncluded = selectedFeatures.includes("SEO");
-            const response = await fetch(`http://127.0.0.1:8000/api/optimize_shortform/`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    clipPath: selectedClip.url,
-                    clipKey: selectedClip.key,
-                    selectedFeatures: selectedFeatures,
-                    videoURL: videoURL,
-                    userEmail: user?.email,
-                    timestamp: serverTimestamp(),
-                }),
+            const response = await apiClient.post('/optimize_shortform/', {
+                clipPath: selectedClip.url,
+                clipKey: selectedClip.key,
+                selectedFeatures: selectedFeatures,
+                videoURL: videoURL,
+                userEmail: user?.email,
+                timestamp: serverTimestamp(),
             });
     
             if (response.ok) {

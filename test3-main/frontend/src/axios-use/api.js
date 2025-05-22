@@ -1,14 +1,27 @@
 import axios from 'axios';
 
 // Create an Axios instance with default settings
-const apiClient = axios.create({
+export const apiClient = axios.create({
     baseURL: process.env.REACT_APP_API_BASE_URL || 'http://127.0.0.1:8000/api', // Use environment variable for flexibility
     headers: {
         'Content-Type': 'application/json',
-    },
-    timeout: 1000000, // Timeout set to 10 seconds
+    }, // Timeout set to 10 seconds
     withCredentials: true, // Ensure credentials (cookies) are sent with requests
 });
+
+// Add request interceptor to include auth token
+apiClient.interceptors.request.use(
+    (config) => {
+        const token = localStorage.getItem('authToken');
+        if (token) {
+            config.headers['Authorization'] = `Token ${token}`;
+        }
+        return config;
+    },
+    (error) => {
+        return Promise.reject(error);
+    }
+);
 
 // Function to get CSRF token from the page and set it in the headers
 const setCsrfToken = () => {

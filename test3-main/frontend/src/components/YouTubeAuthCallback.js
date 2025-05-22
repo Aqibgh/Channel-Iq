@@ -1,7 +1,7 @@
 // src/components/YouTubeAuthCallback.js
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { apiClient } from '../axios-use/api';
 
 const YouTubeAuthCallback = () => {
   const [status, setStatus] = useState('Processing...');
@@ -17,7 +17,7 @@ const YouTubeAuthCallback = () => {
       if (code) {
         try {
           // Exchange the code for tokens
-          await axios.post('/api/youtube/callback/', { code });
+          await apiClient.post('/youtube/callback/', { code });
           
           setStatus('YouTube authorization successful!');
           

@@ -5,6 +5,7 @@ import { auth, provider, db } from "../Firebase";
 import { arrayUnion, doc, setDoc, updateDoc } from "firebase/firestore";
 import { UserContext } from "./UserContext";
 import "./LoginPage.css";
+import { apiClient } from '../axios-use/api';
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -23,29 +24,48 @@ const LoginPage = () => {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
 
-      // 🔹 Step 2: Get Firebase ID Token
-      const idToken = await user.getIdToken(true);
+      // 🔹 Step 2: Get Firebase ID Token with retry logic
+      let idToken;
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (retryCount < maxRetries) {
+        try {
+          // Add a small delay to ensure token is ready
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          idToken = await user.getIdToken(true);
+          break;
+        } catch (tokenError) {
+          if (tokenError.message.includes('Token used too early')) {
+            retryCount++;
+            if (retryCount === maxRetries) {
+              throw new Error('Token timing issue. Please check your system clock and try again.');
+            }
+            // Wait longer between retries
+            await new Promise(resolve => setTimeout(resolve, 2000 * retryCount));
+          } else {
+            throw tokenError;
+          }
+        }
+      }
 
       console.log("✅ Firebase Authentication Success:", user);
 
       // 🔹 Step 3: Send Firebase Token and User ID to Django Backend
-      const authResponse = await fetch(
-        "http://127.0.0.1:8000/api/auth/google-login/",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token: idToken, userId: user.uid }),
-        }
-      );
+      const authResponse = await apiClient.post('/auth/google-login/', {
+        token: idToken,
+        userId: user.uid
+      });
 
-      if (!authResponse.ok)
-        throw new Error("❌ Google login failed in Django Backend");
+      // Check if the response was successful
+      if (!authResponse.data || !authResponse.data.token) {
+        throw new Error("❌ Google login failed in Django Backend: Invalid response");
+      }
 
-      const data = await authResponse.json();
-      console.log("✅ Django Backend Response:", data);
+      console.log("✅ Django Backend Response:", authResponse.data);
 
       // 🔹 Step 4: Store Django Auth Token
-      localStorage.setItem("authToken", data.token);
+      localStorage.setItem("authToken", authResponse.data.token);
 
       // 🔹 Step 5: Store User Data in Firebase Firestore
       const userRef = doc(db, "users", user.uid);
@@ -66,25 +86,29 @@ const LoginPage = () => {
       // 🔹 Step 6: Add login history
       const loginTime = new Date();
       await updateDoc(userRef, {
-        loginHistory: arrayUnion(loginTime),
+        loginHistory: arrayUnion({
+          timestamp: loginTime,
+          method: 'google',
+          success: true
+        })
       });
 
-      // 🔹 Step 7: Save User in Context & Local Storage
+      // 🔹 Step 7: Update User Context
       const userData = {
         name: user.displayName,
         email: user.email,
         picture: user.photoURL,
         uid: user.uid,
-        token: data.token,
+        token: authResponse.data.token
       };
-
       login(userData);
-      localStorage.setItem("user", JSON.stringify(userData));
 
-      // 🔹 Step 8: Redirect to Home Page
+      // 🔹 Step 8: Navigate to Home
       navigate("/home");
+
     } catch (error) {
-      console.error("❌ Google Login Failed:", error);
+      console.error("❌ Login Error:", error);
+      alert(error.message || "An error occurred during login. Please try again.");
     }
   };
 

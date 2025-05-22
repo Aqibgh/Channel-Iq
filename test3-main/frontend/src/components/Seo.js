@@ -3,7 +3,7 @@ import "./Seo.css";
 import { useLocation, useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFileLines, faClosedCaptioning, faSearch, faImage } from "@fortawesome/free-solid-svg-icons";
-import { fetchVideoMetadata } from "../axios-use/api";
+import { fetchVideoMetadata, apiClient } from "../axios-use/api";
 import { UserContext } from "./UserContext"; // Import User Context
 import { db } from "../Firebase";  // Import Firebase Firestore
 import { addDoc, getDoc, doc, setDoc, collection, query, where, serverTimestamp } from "firebase/firestore";
@@ -92,13 +92,7 @@ function SEO({ videoThumbnail }) {
       console.log("Uploading with token:", authToken);
       
       // Make the API request to upload the video
-      const uploadResponse = await fetch("http://127.0.0.1:8000/api/youtube/upload/", {
-        method: "POST",
-        headers: {
-          Authorization: `Token ${authToken}`
-        },
-        body: formData,
-      });
+      const uploadResponse = await apiClient.post('/youtube/upload/', formData);
       
       const data = await uploadResponse.json();
       
@@ -283,14 +277,13 @@ function SEO({ videoThumbnail }) {
   // Function to check if user has YouTube authorization
   const checkYoutubeAuth = async (token) => {
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/youtube/check-auth/", {
-        method: "GET",
+      const response = await apiClient.get('/youtube/check-auth/', {
         headers: {
           Authorization: `Token ${token}`,
         },
       });
       
-      const data = await response.json();
+      const data = response.data;
       console.log("YouTube Auth Data:", data);
       setHasYoutubeAuth(data.has_youtube_auth || false);
     } catch (error) {
@@ -402,121 +395,112 @@ function SEO({ videoThumbnail }) {
     setUploadStatus(null);
   
     try {
-      const authResponse = await fetch("http://127.0.0.1:8000/api/youtube/get-auth-url/", {
-        method: "GET",
+      const authResponse = await apiClient.get('/youtube/get-auth-url/', {
         headers: {
           Authorization: `Token ${authToken}`,
           "Content-Type": "application/json"
         }
       });
       
-      if (!authResponse.ok) {
-        throw new Error(`Failed to get auth URL: ${authResponse.status} ${authResponse.statusText}`);
+      if (!authResponse.data.auth_url) {
+        throw new Error('No auth URL received from server');
       }
       
-      const authData = await authResponse.json();
+      // Open the authorization URL in a new window
+      const authWindow = window.open(authResponse.data.auth_url, "YouTubeAuth", "width=600,height=700");
       
-      if (authData.auth_url) {
-        // Open the authorization URL in a new window
-        const authWindow = window.open(authData.auth_url, "YouTubeAuth", "width=600,height=700");
-        
-        // Add event listener for window closing
-        let windowClosedManually = false;
-        const windowClosedInterval = setInterval(() => {
-          if (authWindow && authWindow.closed) {
-            clearInterval(windowClosedInterval);
-            windowClosedManually = true;
-            
-            // When window is manually closed, check auth status one more time
-            setTimeout(async () => {
-              try {
-                const finalCheckResponse = await fetch("http://127.0.0.1:8000/api/youtube/check-auth/", {
-                  method: "GET",
-                  headers: {
-                    Authorization: `Token ${authToken}`,
-                  },
+      // Add event listener for window closing
+      let windowClosedManually = false;
+      const windowClosedInterval = setInterval(() => {
+        if (authWindow && authWindow.closed) {
+          clearInterval(windowClosedInterval);
+          windowClosedManually = true;
+          
+          // When window is manually closed, check auth status one more time
+          setTimeout(async () => {
+            try {
+              const finalCheckResponse = await apiClient.get('/youtube/check-auth/', {
+                headers: {
+                  Authorization: `Token ${authToken}`,
+                },
+              });
+              
+              const finalCheckData = finalCheckResponse.data;
+              
+              if (finalCheckData.has_youtube_auth) {
+                setHasYoutubeAuth(true);
+                setUploadStatus({
+                  success: true,
+                  message: "YouTube account successfully connected!"
                 });
-                
-                const finalCheckData = await finalCheckResponse.json();
-                
-                if (finalCheckData.has_youtube_auth) {
-                  setHasYoutubeAuth(true);
-                  setUploadStatus({
-                    success: true,
-                    message: "YouTube account successfully connected!"
-                  });
-                } else {
-                  setHasYoutubeAuth(false);
-                  setUploadStatus({
-                    success: false,
-                    message: "YouTube authorization was not completed. Please try again."
-                  });
-                }
-              } catch (error) {
-                console.error("Error in final auth check:", error);
+              } else {
                 setHasYoutubeAuth(false);
                 setUploadStatus({
                   success: false,
-                  message: "Failed to verify YouTube authorization. Please try again."
+                  message: "YouTube authorization was not completed. Please try again."
                 });
-              } finally {
-                setAuthorizing(false);
               }
-            }, 2000); // Wait 2 seconds after window closure before final check
-          }
-        }, 500);
-        
-        // Poll to check if auth is complete
-        const checkAuthInterval = setInterval(async () => {
-          try {
-            if (windowClosedManually) {
-              clearInterval(checkAuthInterval);
-              return;
-            }
-            
-            const checkResponse = await fetch("http://127.0.0.1:8000/api/youtube/check-auth/", {
-              method: "GET",
-              headers: {
-                Authorization: `Token ${authToken}`,
-              },
-            });
-            
-            const checkData = await checkResponse.json();
-            
-            if (checkData.has_youtube_auth) {
-              clearInterval(checkAuthInterval);
-              clearInterval(windowClosedInterval);
-              setHasYoutubeAuth(true);
+            } catch (error) {
+              console.error("Error in final auth check:", error);
+              setHasYoutubeAuth(false);
               setUploadStatus({
-                success: true,
-                message: "YouTube account successfully connected!"
+                success: false,
+                message: "Failed to verify YouTube authorization. Please try again."
               });
-              
-              if (authWindow && !authWindow.closed) {
-                authWindow.close();
-              }
+            } finally {
               setAuthorizing(false);
             }
-          } catch (error) {
-            console.error("Error checking auth status:", error);
+          }, 2000); // Wait 2 seconds after window closure before final check
+        }
+      }, 500);
+      
+      // Poll to check if auth is complete
+      const checkAuthInterval = setInterval(async () => {
+        try {
+          if (windowClosedManually) {
+            clearInterval(checkAuthInterval);
+            return;
           }
-        }, 2000); // Check every 2 seconds
-        
-        // Cleanup interval after 5 minutes (maximum waiting time)
-        setTimeout(() => {
-          clearInterval(checkAuthInterval);
-          clearInterval(windowClosedInterval);
-          if (!windowClosedManually) {
+          
+          const checkResponse = await apiClient.get('/youtube/check-auth/', {
+            headers: {
+              Authorization: `Token ${authToken}`,
+            },
+          });
+          
+          const checkData = checkResponse.data;
+          
+          if (checkData.has_youtube_auth) {
+            clearInterval(checkAuthInterval);
+            clearInterval(windowClosedInterval);
+            setHasYoutubeAuth(true);
             setUploadStatus({
-              success: false,
-              message: "Authorization timed out. Please try again."
+              success: true,
+              message: "YouTube account successfully connected!"
             });
+            
+            if (authWindow && !authWindow.closed) {
+              authWindow.close();
+            }
             setAuthorizing(false);
           }
-        }, 300000); // 5 minutes
-      } else {
-        throw new Error("No authorization URL received from server");
-      }
+        } catch (error) {
+          console.error("Error checking auth status:", error);
+        }
+      }, 2000); // Check every 2 seconds
+      
+      // Cleanup interval after 5 minutes (maximum waiting time)
+      setTimeout(() => {
+        clearInterval(checkAuthInterval);
+        clearInterval(windowClosedInterval);
+        if (!windowClosedManually) {
+          setUploadStatus({
+            success: false,
+            message: "Authorization timed out. Please try again."
+          });
+          setAuthorizing(false);
+        }
+      }, 300000); // 5 minutes
     } catch (error) {
       console.error("Authorization error:", error);
       setUploadStatus({
@@ -585,13 +569,7 @@ function SEO({ videoThumbnail }) {
       formData.append("tags", seoData.tags?.join(",") || "");
   
       // Make API call to update video metadata
-      const updateResponse = await fetch("http://127.0.0.1:8000/api/youtube/update-seo/", {
-        method: "POST",
-        headers: {
-          Authorization: `Token ${authToken}`,
-        },
-        body: formData,
-      });
+      const updateResponse = await apiClient.post('/youtube/update-seo/', formData);
       
       // Handle different response status codes
       if (updateResponse.status === 403) {

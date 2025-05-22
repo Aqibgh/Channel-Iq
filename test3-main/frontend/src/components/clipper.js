@@ -1,7 +1,7 @@
 import React, { useState, useContext } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import { fetchVideoMetadata, downloadAndUploadVideo } from "../axios-use/api";
+import { fetchVideoMetadata, downloadAndUploadVideo, apiClient } from "../axios-use/api";
 import "./clipper.css";
 import { UserContext } from "./UserContext"; // Import User Context
 import { db } from "../Firebase";  // Import Firebase Firestore
@@ -237,13 +237,9 @@ try {
     
         // 4. Resolution Check (Optional - shouldn't block flow)
         try {
-          const resolutionResponse = await axios.post(
-            "http://127.0.0.1:8000/api/check-resolution/",
-            { video_path: localPath },
-            { 
-              headers: { "Content-Type": "application/json" }
-            }
-          );
+          const resolutionResponse = await apiClient.post('/check-resolution/', {
+            video_path: localPath
+          });
           
           if (resolutionResponse.data?.resolution) {
             setVideoResolution(resolutionResponse.data.resolution);
@@ -352,9 +348,7 @@ try {
               console.log("📌 Running Long Form Optimization...");
   
               try {
-                  response = await axios.post("http://127.0.0.1:8000/api/seo/", payload, {
-                      headers: { "Content-Type": "application/json" },
-                  });
+                  response = await apiClient.post("/seo/", payload);
                   
                   console.log("✅ Response Data:", response.data);
                   
@@ -468,19 +462,12 @@ try {
               console.log("🎬 Running Short Form Optimization...");
   
               try {
-                  response = await axios.post(
-                      "http://127.0.0.1:8000/api/process_short_form_video/",
+                  response = await apiClient.post(
+                      "/process_short_form_video/",
                       {
                           ...payload,
                           clipLength: Number(clipLength),
                           clipCount: Number(clipCount),
-                      },
-                      {
-                          headers: {
-                              "X-CSRFToken": csrfToken,
-                              "Content-Type": "application/json",
-                          },
-                          
                       }
                   );
   
@@ -587,13 +574,7 @@ try {
           userEmail: user?.email
         };
 
-        const response = await axios.post(
-          "http://127.0.0.1:8000/api/generate-report/",
-          payload,
-          {
-            headers: { "Content-Type": "application/json" },
-          }
-        );
+        const response = await apiClient.post("/generate-report/", payload);
 
         if (response.data.status === "success") {
           // Navigate to the report page with the report data

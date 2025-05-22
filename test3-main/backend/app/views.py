@@ -54,7 +54,8 @@ if not YOUTUBE_API_KEY:
     raise ValueError("YouTube API Key not set. Please configure it in environment variables.")
 MEDIA_ROOT = os.path.join(os.getcwd(), 'media')
 
-@csrf_exempt
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def process_short_form_video(request):
     if request.method == "POST":
         try:
@@ -184,8 +185,6 @@ def process_short_form_video(request):
         except Exception as e:
             logger.error(f"Error in process_short_form_video: {e}")
             return JsonResponse({"error": str(e)}, status=500)
-    else:
-        return JsonResponse({"error": "Only POST requests are allowed"}, status=405)
 
 
 def extract_youtube_id(url):
@@ -281,7 +280,8 @@ def get_video_resolution(video_path):
         width, height = video.size  # (width, height)
     return width, height
 
-@csrf_exempt
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def check_resolution(request):
     if request.method == "POST":
         try:
@@ -344,7 +344,8 @@ def check_resolution(request):
         "resolution": None,
         "error": "Only POST method is allowed"
     }, status=405)
-@csrf_exempt
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def seo(request):
     if request.method == "POST":
         try:
@@ -589,10 +590,9 @@ def seo(request):
         except Exception as e:
             logger.error(f"Error in SEO function: {e}")
             return JsonResponse({"error": "Internal Server Error"}, status=500)
-    else:
-        return JsonResponse({"error": "Only POST requests are allowed"}, status=405)
 
-@csrf_exempt
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def optimize_shortform(request):
     if request.method == "POST":
         try:
@@ -1009,9 +1009,9 @@ def optimize_shortform(request):
         except Exception as e:
             logger.error(f"Error in optimize_shortform function: {e}")
             return JsonResponse({"error": f"Internal Server Error: {str(e)}"}, status=500)
-    else:
-        return JsonResponse({"error": "Only POST requests are allowed"}, status=405)
-@csrf_exempt
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def fetch_data(request):
     if request.method == "POST":
         try:
@@ -1077,7 +1077,8 @@ def upload_video(request):
         file_url = fs.url(filename)
         return JsonResponse({'file_url': file_url})
 # Fetch Video Metadata
-@csrf_exempt
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
 def fetch_video_data(request):
     video_url = request.GET.get("url")
     if not video_url:
@@ -1111,7 +1112,8 @@ def sanitize_filename(filename):
     filename = re.sub(r'[\\/*?:"<>|]', "", filename)  # Remove invalid characters
     return filename
 # Download Video and Upload to S3
-@csrf_exempt
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
 def download_video(request):
     # Extract video URL from the request
     if request.method == "POST":
@@ -1951,7 +1953,8 @@ def update_youtube_seo(request):
         
         return Response({'error': str(e)}, status=500)
 
-@csrf_exempt
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def generate_report(request):
     """
     Generate a detailed video analysis report using report.py

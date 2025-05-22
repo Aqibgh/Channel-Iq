@@ -4,6 +4,7 @@ import { UserContext } from "./UserContext"; // Import User Context
 import { db } from "../Firebase"; // Import Firestore Database
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import "./Seo_shortform.css";
+import { apiClient } from '../axios-use/api';
 
 function Seo_shortform({ videoThumbnail }) {
   const location = useLocation();
@@ -226,16 +227,9 @@ const saveOptimizationDetails = async ({
   // Function to check if user has YouTube authorization
   const checkYoutubeAuth = async (token) => {
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/youtube/check-auth/", {
-        method: "GET",
-        headers: {
-          Authorization: `Token ${token}`,
-        },
-      });
-      
-      const data = await response.json();
-      console.log("YouTube Auth Data:", data);
-      setHasYoutubeAuth(data.has_youtube_auth || false);
+      const response = await apiClient.get('/youtube/check-auth/');
+      console.log("YouTube Auth Data:", response.data);
+      setHasYoutubeAuth(response.data.has_youtube_auth || false);
     } catch (error) {
       console.error("Error checking YouTube auth:", error);
       setHasYoutubeAuth(false);
@@ -311,65 +305,46 @@ const saveOptimizationDetails = async ({
     setUploadStatus(null);
 
     try {
-      const authResponse = await fetch("http://127.0.0.1:8000/api/youtube/get-auth-url/", {
-        method: "GET",
-        headers: {
-          Authorization: `Token ${authToken}`,
-          "Content-Type": "application/json"
-        }
-      });
+      const authResponse = await apiClient.get('/youtube/get-auth-url/');
       
-      if (!authResponse.ok) {
-        throw new Error(`Failed to get auth URL: ${authResponse.status} ${authResponse.statusText}`);
-      }
-      
-      const authData = await authResponse.json();
-      
-      if (authData.auth_url) {
-        // Open the authorization URL in a new window
-        const authWindow = window.open(authData.auth_url, "YouTubeAuth", "width=600,height=700");
-        
-        // Poll to check if auth is complete
-        const checkAuthInterval = setInterval(async () => {
-          try {
-            const checkResponse = await fetch("http://127.0.0.1:8000/api/youtube/check-auth/", {
-              method: "GET",
-              headers: {
-                Authorization: `Token ${authToken}`,
-              },
-            });
-            
-            const checkData = await checkResponse.json();
-            
-            if (checkData.has_youtube_auth) {
-              // Auth is complete, close polling and window
-              clearInterval(checkAuthInterval);
-              setHasYoutubeAuth(true);
-              setUploadStatus({
-                success: true,
-                message: "YouTube account successfully connected!"
-              });
-              
-              if (authWindow && !authWindow.closed) {
-                authWindow.close();
-              }
-            }
-          } catch (error) {
-            console.error("Error checking auth status:", error);
-          }
-        }, 2000); // Check every 2 seconds
-        
-        // Cleanup interval after 5 minutes (maximum waiting time)
-        setTimeout(() => {
-          clearInterval(checkAuthInterval);
-          setUploadStatus({
-            success: false,
-            message: "Authorization timed out. Please try again."
-          });
-        }, 300000); // 5 minutes
-      } else {
+      if (!authResponse.data.auth_url) {
         throw new Error("No authorization URL received from server");
       }
+      
+      // Open the authorization URL in a new window
+      const authWindow = window.open(authResponse.data.auth_url, "YouTubeAuth", "width=600,height=700");
+      
+      // Poll to check if auth is complete
+      const checkAuthInterval = setInterval(async () => {
+        try {
+          const checkResponse = await apiClient.get('/youtube/check-auth/');
+          
+          if (checkResponse.data.has_youtube_auth) {
+            // Auth is complete, close polling and window
+            clearInterval(checkAuthInterval);
+            setHasYoutubeAuth(true);
+            setUploadStatus({
+              success: true,
+              message: "YouTube account successfully connected!"
+            });
+            
+            if (authWindow && !authWindow.closed) {
+              authWindow.close();
+            }
+          }
+        } catch (error) {
+          console.error("Error checking auth status:", error);
+        }
+      }, 2000); // Check every 2 seconds
+      
+      // Cleanup interval after 5 minutes (maximum waiting time)
+      setTimeout(() => {
+        clearInterval(checkAuthInterval);
+        setUploadStatus({
+          success: false,
+          message: "Authorization timed out. Please try again."
+        });
+      }, 300000); // 5 minutes
     } catch (error) {
       console.error("Authorization error:", error);
       setUploadStatus({
@@ -420,15 +395,9 @@ const saveOptimizationDetails = async ({
       console.log("Uploading with token:", authToken);
       
       // Make the API request to upload the video
-      const uploadResponse = await fetch("http://127.0.0.1:8000/api/youtube/upload/", {
-        method: "POST",
-        headers: {
-          Authorization: `Token ${authToken}`
-        },
-        body: formData,
-      });
+      const uploadResponse = await apiClient.post('/youtube/upload/', formData);
       
-      const data = await uploadResponse.json();
+      const data = await uploadResponse.data;
       
       // Check if we need to re-authorize YouTube
       if (!uploadResponse.ok) {

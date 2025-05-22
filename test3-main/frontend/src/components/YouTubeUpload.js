@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useState } from "react";
 import { GoogleLogin } from "@react-oauth/google";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
-import axios from "axios";
+import { apiClient } from '../axios-use/api';
 
 import { UserContext } from "./UserContext";
 import "./LoginPage.css";
@@ -28,11 +28,7 @@ const LoginPage = () => {
   // Check YouTube auth status when user logs in
   const checkYouTubeAuth = async () => {
     try {
-      const response = await axios.get('/api/youtube/check-auth/', {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('authToken')}`
-        }
-      });
+      const response = await apiClient.get('/youtube/check-auth/');
       
       setAuthStatus(prev => ({
         ...prev,
@@ -54,7 +50,7 @@ const LoginPage = () => {
       console.log("Google Login Success:", decodedUser);
       
       // Get authentication token from backend
-      const authResponse = await axios.post('/api/auth/google-login/', {
+      const authResponse = await apiClient.post('/auth/google-login/', {
         token: response.credential
       });
       

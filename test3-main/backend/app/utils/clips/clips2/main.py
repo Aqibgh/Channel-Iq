@@ -8,7 +8,6 @@ from .Components.YoutubeDownloader import download_youtube_video
 from .Components.Edit import extractAudio, crop_video
 from .Components.Transcription import transcribeAudio
 from .Components.LanguageTasks import GetHighlight
-from .Components.FaceCrop import process_video_clip, combine_videos
 from .Components.resize import resize_video
 from django.conf import settings
 

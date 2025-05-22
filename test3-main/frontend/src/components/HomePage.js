@@ -61,7 +61,6 @@ const HomePage = () => {
     });
   }, []);
   
-
   // Text animation effect
   useEffect(() => {
     const animateElements = () => {

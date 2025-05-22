@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useContext } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { apiClient } from '../axios-use/api';
 import "./comparsion.css";
 import { UserContext } from "./UserContext";
 
@@ -73,9 +73,7 @@ const Comparison = () => {
   const fetchOriginalSeo = async () => {
     try {
       const payload = { videoURL };
-      const response = await axios.post('http://127.0.0.1:8000/api/fetch-data/', payload, {
-        headers: { 'Content-Type': 'application/json' }
-      });
+      const response = await apiClient.post('/fetch-data/', payload);
       setOriginalSeoData(response.data.data);
       setError(null);
     } catch (err) {
