@@ -10,13 +10,6 @@ services:
       - media_volume:/app/media
       - logs_volume:/app/logs
       - sqlite_data:/app/data
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
     networks:
       - app_network
 
@@ -44,4 +37,4 @@ volumes:
 
 networks:
   app_network:
-    driver: bridge 
+    driver: bridge
