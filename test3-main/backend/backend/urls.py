@@ -6,7 +6,7 @@ from django.views.generic import TemplateView
 from django.middleware.csrf import get_token
 from django.conf import settings
 import os
-
+from app.urls import health_check
 # A simple view for the root URL
 def index(request):
     return HttpResponse("Welcome to Django!")
@@ -15,6 +15,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', index, name='index'),
     path('api/', include('app.urls')),
+    path('health/', health_check, name='health_check'),
 ]
 
 # Serve media files during development

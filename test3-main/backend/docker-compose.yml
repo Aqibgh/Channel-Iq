@@ -2,9 +2,14 @@ version: '3.8'
 
 services:
   web:
-    build: .
+    build: 
+      context: .
+      dockerfile: Dockerfile
     restart: always
     env_file: .env
+    environment:
+      - DJANGO_SETTINGS_MODULE=backend.settings
+      - PYTHONPATH=/app
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
@@ -12,29 +17,57 @@ services:
       - sqlite_data:/app/data
     networks:
       - app_network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health/', timeout=10)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   nginx:
-    image: nginx:1.25
+    image: nginx:1.25-alpine
     restart: always
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d
-      - ./nginx/ssl:/etc/nginx/ssl
-      - static_volume:/app/staticfiles
-      - media_volume:/app/media
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - static_volume:/app/staticfiles:ro
+      - media_volume:/app/media:ro
+      - logs_volume:/var/log/nginx
     depends_on:
-      - web
+      web:
+        condition: service_healthy
     networks:
       - app_network
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
 
 volumes:
   sqlite_data:
+    driver: local
   static_volume:
+    driver: local
   media_volume:
+    driver: local
   logs_volume:
+    driver: local
 
 networks:
   app_network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

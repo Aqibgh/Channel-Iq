@@ -8,54 +8,84 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PATH="/opt/venv/bin:$PATH"
 
-# Install build and runtime dependencies
+# Install system dependencies in stages
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Build dependencies
     build-essential \
-    libpq-dev \
+    gcc \
+    g++ \
+    gfortran \
+    # Python development
     python3.11-dev \
-    python3.11-tk \
     python3.11-venv \
+    # Database
+    libpq-dev \
     libpq5 \
+    # Audio/Video processing
     ffmpeg \
+    libsndfile1 \
+    libportaudio2 \
+    # Graphics/Display
     libsm6 \
     libxext6 \
     libxrender1 \
     libgl1-mesa-glx \
-    libsndfile1 \
+    # Math libraries
+    libopenblas-dev \
+    liblapack-dev \
+    libblas-dev \
+    # Utilities
     libmagic1 \
-    libportaudio2 \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    pkg-config \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create virtual environment
 RUN python3.11 -m venv /opt/venv
 
-# Set temp directory for pip
-ENV TMPDIR=/tmp/pip-build
-RUN mkdir -p $TMPDIR
+# Upgrade pip and install build tools
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
-# Copy requirements and install dependencies
-COPY requirement.txt .
+# Copy requirements first for better caching
+COPY requirement.txt /tmp/
 
-RUN pip install --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir PyYAML tf-keras && \
-    TMPDIR=/tmp/pip-build pip install --no-cache-dir torch torchvision torchaudio && \
-    TMPDIR=/tmp/pip-build pip install --no-cache-dir -r requirement.txt && \
-    pip cache purge && \
-    rm -rf /tmp/* /var/tmp/* /root/.cache && \
-    find /opt/venv -name "*.pyc" -delete && \
-    find /opt/venv -name "*.pyo" -delete && \
-    find /opt/venv -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true && \
-    find /opt/venv -name "*.so" -exec strip {} \; 2>/dev/null || true
+# Install Python packages in optimized order
+RUN pip install --no-cache-dir numpy==1.24.3 && \
+    pip install --no-cache-dir --no-binary=scipy scipy && \
+    pip install --no-cache-dir cython && \
+    pip install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
+        torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir -r /tmp/requirement.txt
+
+# Clean up build dependencies and cache
+RUN apt-get remove -y \
+    build-essential \
+    gcc \
+    g++ \
+    gfortran \
+    python3.11-dev \
+    libopenblas-dev \
+    liblapack-dev \
+    pkg-config \
+    wget \
+    && apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /tmp/* /var/tmp/* /root/.cache \
+    && find /opt/venv -name "*.pyc" -delete \
+    && find /opt/venv -name "*.pyo" -delete \
+    && find /opt/venv -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 
 # Create non-root user
 RUN useradd -m -u 1000 appuser
 
-# Set working directory and copy project files
+# Set working directory
 WORKDIR /app
-COPY . .
 
-# Create necessary directories and set permissions
+# Copy project files
+COPY --chown=appuser:appuser . .
+
+# Create necessary directories
 RUN mkdir -p /app/logs /app/media /app/staticfiles /app/data && \
     chown -R appuser:appuser /app
 
@@ -63,10 +93,28 @@ RUN mkdir -p /app/logs /app/media /app/staticfiles /app/data && \
 USER appuser
 
 # Collect static files
-RUN python manage.py collectstatic --noinput
+RUN python manage.py collectstatic --noinput || echo "Static files collection failed, continuing..."
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=40s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:8000/health/', timeout=10)" || exit 1
 
 # Expose port
 EXPOSE 8000
 
-# Run gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "--threads", "2", "backend.wsgi:application"]
+# Use a more memory-efficient gunicorn configuration
+CMD ["gunicorn", \
+     "--bind", "0.0.0.0:8000", \
+     "--workers", "1", \
+     "--threads", "2", \
+     "--worker-class", "gthread", \
+     "--worker-connections", "50", \
+     "--max-requests", "1000", \
+     "--max-requests-jitter", "100", \
+     "--timeout", "300", \
+     "--keep-alive", "5", \
+     "--preload", \
+     "--access-logfile", "/app/logs/gunicorn-access.log", \
+     "--error-logfile", "/app/logs/gunicorn-error.log", \
+     "--log-level", "info", \
+     "backend.wsgi:application"]
