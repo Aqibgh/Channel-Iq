@@ -54,7 +54,7 @@ onnx==1.17.0
 PySocks==1.7.1
 python-magic==0.4.27
 SpeechRecognition==3.14.2
-whisperx==3.3.2
+whisperx
 whitenoise==6.9.0
 clipsai==0.2.1
 deepface==0.0.93

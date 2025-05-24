@@ -37,6 +37,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Utilities
     libmagic1 \
     pkg-config \
+    python3-tk \
+    tk-dev \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
@@ -50,9 +52,10 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 COPY requirement.txt /tmp/
 
 # Install Python packages in optimized order
-RUN pip install --no-cache-dir numpy==1.24.3 && \
-    pip install --no-cache-dir --no-binary=scipy scipy && \
+RUN pip install --no-cache-dir numpy && \
+    pip install --no-cache-dir scipy && \
     pip install --no-cache-dir cython && \
+    pip install --no-cache-dir PyYAML && \
     pip install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
         torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
     pip install --no-cache-dir -r /tmp/requirement.txt
@@ -91,7 +94,6 @@ RUN mkdir -p /app/logs /app/media /app/staticfiles /app/data && \
 
 # Switch to non-root user
 USER appuser
-
 # Collect static files
 RUN python manage.py collectstatic --noinput || echo "Static files collection failed, continuing..."
 

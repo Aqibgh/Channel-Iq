@@ -47,6 +47,7 @@ import httplib2
 from google_auth_httplib2 import Request as google_auth_httplib2_Request
 import google_auth_httplib2
 from django.core.mail import send_mail
+from rest_framework_simplejwt.tokens import RefreshToken
 User = get_user_model()
 # Ensure the YouTube API key is set in environment variables
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
@@ -1786,24 +1787,27 @@ def google_login(request):
             logger.info(f"Token UID: {decoded_token.get('uid', 'N/A')}")
             logger.info(f"Token email: {decoded_token.get('email', 'N/A')}")
             
-        except firebase_admin.exceptions.InvalidIdTokenError as e:
-            logger.error(f"❌ Invalid token error: {str(e)}")
-            return Response({
-                'error': 'Invalid Firebase token',
-                'debug': str(e)
-            }, status=status.HTTP_401_UNAUTHORIZED)
-        except firebase_admin.exceptions.ExpiredIdTokenError as e:
-            logger.error(f"❌ Expired token error: {str(e)}")
-            return Response({
-                'error': 'Firebase token has expired',
-                'debug': str(e)
-            }, status=status.HTTP_401_UNAUTHORIZED)
-        except firebase_admin.exceptions.RevokedIdTokenError as e:
-            logger.error(f"❌ Revoked token error: {str(e)}")
-            return Response({
-                'error': 'Firebase token has been revoked',
-                'debug': str(e)
-            }, status=status.HTTP_401_UNAUTHORIZED)
+        except ValueError as e:
+            # Firebase Admin SDK raises ValueError for invalid tokens
+            error_str = str(e).lower()
+            logger.error(f"❌ Token validation error: {str(e)}")
+            
+            if 'expired' in error_str:
+                return Response({
+                    'error': 'Firebase token has expired',
+                    'debug': str(e)
+                }, status=status.HTTP_401_UNAUTHORIZED)
+            elif 'revoked' in error_str:
+                return Response({
+                    'error': 'Firebase token has been revoked',
+                    'debug': str(e)
+                }, status=status.HTTP_401_UNAUTHORIZED)
+            else:
+                return Response({
+                    'error': 'Invalid Firebase token',
+                    'debug': str(e)
+                }, status=status.HTTP_401_UNAUTHORIZED)
+                
         except Exception as e:
             logger.error(f"❌ Unexpected error verifying token: {str(e)}")
             logger.error(f"Token preview: {token[:50]}...")
@@ -1854,13 +1858,15 @@ def google_login(request):
             
             logger.info(f"👤 User {'created' if created else 'found'}: {user.email}")
 
-            # Generate authentication token
-            django_token, token_created = Token.objects.get_or_create(user=user)
-            logger.info(f"🔑 Django token {'created' if token_created else 'retrieved'} for user: {user.email}")
-
+            # Generate JWT tokens
+            refresh = RefreshToken.for_user(user)
+            access_token = str(refresh.access_token)
+            refresh_token = str(refresh)
+            
             logger.info("✅ LOGIN SUCCESSFUL")
             return Response({
-                'token': django_token.key,
+                'access_token': access_token,
+                'refresh_token': refresh_token,
                 'user': {
                     'id': user.id,
                     'email': user.email,
