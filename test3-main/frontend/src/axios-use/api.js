@@ -2,19 +2,19 @@ import axios from 'axios';
 
 // Create an Axios instance with default settings
 export const apiClient = axios.create({
-    baseURL: process.env.REACT_APP_API_BASE_URL || 'http://127.0.0.1:8000/api', // Use environment variable for flexibility
+    baseURL: 'https://channel-iq.nzxtsol.com/api/', // Use local development URL
     headers: {
         'Content-Type': 'application/json',
-    }, // Timeout set to 10 seconds
-    withCredentials: true, // Ensure credentials (cookies) are sent with requests
+    },
+    withCredentials: true, // Enable credentials for token-based auth
 });
 
 // Add request interceptor to include auth token
 apiClient.interceptors.request.use(
     (config) => {
-        const token = localStorage.getItem('authToken');
+        const token = localStorage.getItem('access_token'); // Changed from authToken to access_token
         if (token) {
-            config.headers['Authorization'] = `Token ${token}`;
+            config.headers['Authorization'] = `Bearer ${token}`;
         }
         return config;
     },
@@ -22,19 +22,6 @@ apiClient.interceptors.request.use(
         return Promise.reject(error);
     }
 );
-
-// Function to get CSRF token from the page and set it in the headers
-const setCsrfToken = () => {
-    const csrfTokenElement = document.querySelector('meta[name="csrf-token"]');
-    if (!csrfTokenElement) {
-        throw new Error("CSRF token meta tag not found. Ensure it's present in your HTML.");
-    }
-    const csrfToken = csrfTokenElement.getAttribute('content');
-    apiClient.defaults.headers['X-CSRFToken'] = csrfToken;
-};
-
-// Call setCsrfToken on app initialization to set the token globally for Axios requests
-setCsrfToken();
 
 // Fetch video metadata
 export const fetchVideoMetadata = async (url) => {

@@ -20,10 +20,13 @@ const LoginPage = () => {
 
   const handleGoogleLogin = async () => {
     try {
+      console.log("🔄 Starting Google login process...");
+      
       // 🔹 Step 1: Sign in with Firebase
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
-
+      console.log("✅ Firebase popup completed");
+  
       // 🔹 Step 2: Get Firebase ID Token with retry logic
       let idToken;
       let retryCount = 0;
@@ -34,8 +37,10 @@ const LoginPage = () => {
           // Add a small delay to ensure token is ready
           await new Promise(resolve => setTimeout(resolve, 1000));
           idToken = await user.getIdToken(true);
+          console.log("✅ Got Firebase ID token:", idToken.substring(0, 20) + "...");
           break;
         } catch (tokenError) {
+          console.error("❌ Token error:", tokenError);
           if (tokenError.message.includes('Token used too early')) {
             retryCount++;
             if (retryCount === maxRetries) {
@@ -49,27 +54,40 @@ const LoginPage = () => {
         }
       }
 
-      console.log("✅ Firebase Authentication Success:", user);
-
+      console.log("✅ Firebase Authentication Success:", {
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName
+      });
+  
       // 🔹 Step 3: Send Firebase Token and User ID to Django Backend
-      const authResponse = await apiClient.post('/auth/google-login/', {
+      console.log("🔄 Sending authentication request to backend...");
+      console.log("Request payload:", {
+        token: idToken.substring(0, 20) + "...",
+        userId: user.uid
+      });
+  
+      const authResponse = await apiClient.post('auth/google-login/', {
         token: idToken,
         userId: user.uid
       });
-
+  
+      console.log("✅ Backend response:", authResponse.data);
+  
       // Check if the response was successful
-      if (!authResponse.data || !authResponse.data.token) {
+      if (!authResponse.data || !authResponse.data.access_token) {
         throw new Error("❌ Google login failed in Django Backend: Invalid response");
       }
-
-      console.log("✅ Django Backend Response:", authResponse.data);
-
-      // 🔹 Step 4: Store Django Auth Token
-      localStorage.setItem("authToken", authResponse.data.token);
-
+  
+      console.log("✅ Django Backend Authentication Success");
+  
+      // 🔹 Step 4: Store JWT Tokens
+      localStorage.setItem("access_token", authResponse.data.access_token);
+      localStorage.setItem("refresh_token", authResponse.data.refresh_token);
+  
       // 🔹 Step 5: Store User Data in Firebase Firestore
       const userRef = doc(db, "users", user.uid);
-
+  
       // ✅ Store basic user details (merged with existing)
       await setDoc(
         userRef,
@@ -82,7 +100,7 @@ const LoginPage = () => {
         },
         { merge: true }
       );
-
+  
       // 🔹 Step 6: Add login history
       const loginTime = new Date();
       await updateDoc(userRef, {
@@ -92,23 +110,43 @@ const LoginPage = () => {
           success: true
         })
       });
-
-      // 🔹 Step 7: Update User Context
+  
+      // 🔹 Step 7: Update User Context with complete data
       const userData = {
+        uid: user.uid,
         name: user.displayName,
         email: user.email,
         picture: user.photoURL,
-        uid: user.uid,
-        token: authResponse.data.token
+        access_token: authResponse.data.access_token,
+        refresh_token: authResponse.data.refresh_token,
+        firebase_uid: user.uid
       };
+  
       login(userData);
-
+      console.log("✅ User context updated");
+  
       // 🔹 Step 8: Navigate to Home
       navigate("/home");
-
+  
     } catch (error) {
-      console.error("❌ Login Error:", error);
-      alert(error.message || "An error occurred during login. Please try again.");
+      console.error("❌ Login Error Details:");
+      console.error("Error message:", error.message);
+      console.error("Error response:", error.response?.data);
+      console.error("Error status:", error.response?.status);
+      console.error("Full error:", error);
+      
+      // Show more detailed error message
+      let errorMessage = "An error occurred during login. Please try again.";
+      if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+        if (error.response.data.debug) {
+          console.error("Debug info:", error.response.data.debug);
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      alert(errorMessage);
     }
   };
 

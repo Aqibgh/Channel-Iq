@@ -20,28 +20,40 @@ export const UserProvider = ({ children }) => {
     }
   }, []);
   
-  // ✅ Login function to set user & store token
+  // Login function to set user & store token
   const login = (userData) => {
-    if (!userData || !userData.token) {
-        console.error("❌ Error: Missing userData or token in login function");
-        return;
+    if (!userData) {
+      console.error("❌ Error: Missing userData in login function");
+      return;
     }
 
+    // Ensure we have the required data
     const formattedUser = {
-        ...userData,
-        uid: userData.uid || userData.firebase_uid || userData.id || null,  // ✅ Ensure `uid` is always set
+      uid: userData.id || userData.uid || userData.firebase_uid,
+      name: userData.name,
+      email: userData.email,
+      picture: userData.picture,
+      access_token: userData.access_token,
+      refresh_token: userData.refresh_token
     };
 
+    // Validate required fields
+    if (!formattedUser.uid || !formattedUser.access_token) {
+      console.error("❌ Error: Missing required user data (uid or token)");
+      return;
+    }
+
+    // Update state and localStorage
     setUser(formattedUser);
     localStorage.setItem("user", JSON.stringify(formattedUser));
-    localStorage.setItem("token", userData.token);
-};
+    localStorage.setItem("token", formattedUser.access_token);
+  };
 
-  // ✅ Logout function to clear session
+  // Logout function to clear session
   const logout = () => {
     setUser(null);
     localStorage.removeItem("user");
-    localStorage.removeItem("token");  // ✅ Clear token on logout
+    localStorage.removeItem("token");
   };
 
   return (
