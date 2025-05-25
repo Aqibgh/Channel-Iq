@@ -1,4 +1,5 @@
 import os
+from django.contrib.auth.hashers import make_password
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from urllib.parse import urlparse, parse_qs
@@ -1697,199 +1698,67 @@ def cleanup_temporary_file(temp_file_name, media=None):
                     except Exception as move_ex:
                         print(f"ERROR: Failed to schedule file for deletion: {str(move_ex)}")
 
+from rest_framework_simplejwt.tokens import RefreshToken
+from app.models import CustomUser  # Import your custom user model
+import firebase_admin
+from firebase_admin import auth as firebase_auth
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def google_login(request):
-    """Verify Firebase token and create/login user"""
-    # Log the incoming request
-    logger.info(f"=== GOOGLE LOGIN REQUEST RECEIVED ===")
-    logger.info(f"Method: {request.method}")
-    logger.info(f"Headers: {dict(request.headers)}")
-    logger.info(f"Content-Type: {request.content_type}")
-    logger.info(f"Data keys: {list(request.data.keys()) if hasattr(request, 'data') else 'No data'}")
-    
+    token = request.data.get('token')
+    user_id = request.data.get('userId')
+
+    if not token:
+        return Response({'error': 'Token is required'}, status=status.HTTP_400_BAD_REQUEST)
+
     try:
-        # Get data from request
-        token = request.data.get('token')
-        firebase_uid = request.data.get('userId')
-        
-        logger.info(f"Token present: {bool(token)}")
-        logger.info(f"Token length: {len(token) if token else 0}")
-        logger.info(f"Firebase UID: {firebase_uid}")
-        
-        if not token:
-            logger.error("❌ No token provided in request")
-            return Response({
-                'error': 'Token is required',
-                'debug': 'No token found in request.data'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        if not firebase_uid:
-            logger.error("❌ No Firebase UID provided in request")
-            return Response({
-                'error': 'Firebase UID is required',
-                'debug': 'No userId found in request.data'
-            }, status=status.HTTP_400_BAD_REQUEST)
-    
-        # Import Firebase Admin SDK
-        try:
-            import firebase_admin
-            from firebase_admin import auth as firebase_auth
-            from firebase_admin import credentials
-            logger.info("✅ Firebase Admin SDK imported successfully")
-        except ImportError as e:
-            logger.error(f"❌ Firebase Admin SDK import error: {str(e)}")
-            return Response({
-                'error': 'Firebase Admin SDK not available',
-                'debug': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-        # Initialize Firebase Admin SDK if not already initialized
-        try:
-            firebase_app = firebase_admin.get_app()
-            logger.info("✅ Firebase app already initialized")
-        except ValueError:
-            logger.info("🔄 Initializing Firebase app with credentials")
-            try:
-                # Check if credentials file exists
-                import os
-                creds_path = settings.FIREBASE_SERVICE_ACCOUNT_KEY_PATH
-                logger.info(f"Looking for credentials at: {creds_path}")
-                
-                if not os.path.exists(creds_path):
-                    logger.error(f"❌ Firebase credentials file not found at: {creds_path}")
-                    return Response({
-                        'error': 'Firebase credentials not configured',
-                        'debug': f'File not found: {creds_path}'
-                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-                
-                # Initialize with your Firebase credentials
-                cred = credentials.Certificate(creds_path)
-                firebase_app = firebase_admin.initialize_app(cred)
-                logger.info("✅ Firebase app initialized successfully")
-            except Exception as e:
-                logger.error(f"❌ Error initializing Firebase app: {str(e)}")
-                return Response({
-                    'error': 'Firebase initialization failed',
-                    'debug': str(e)
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-        logger.info("🔄 Verifying Firebase token...")
-        try:
-            # Verify the Firebase token
-            decoded_token = firebase_auth.verify_id_token(token, check_revoked=False)
-            logger.info(f"✅ Token verified successfully")
-            logger.info(f"Decoded token keys: {list(decoded_token.keys())}")
-            
-            # Log some token details (safely)
-            logger.info(f"Token issuer: {decoded_token.get('iss', 'N/A')}")
-            logger.info(f"Token audience: {decoded_token.get('aud', 'N/A')}")
-            logger.info(f"Token UID: {decoded_token.get('uid', 'N/A')}")
-            logger.info(f"Token email: {decoded_token.get('email', 'N/A')}")
-            
-        except ValueError as e:
-            # Firebase Admin SDK raises ValueError for invalid tokens
-            error_str = str(e).lower()
-            logger.error(f"❌ Token validation error: {str(e)}")
-            
-            if 'expired' in error_str:
-                return Response({
-                    'error': 'Firebase token has expired',
-                    'debug': str(e)
-                }, status=status.HTTP_401_UNAUTHORIZED)
-            elif 'revoked' in error_str:
-                return Response({
-                    'error': 'Firebase token has been revoked',
-                    'debug': str(e)
-                }, status=status.HTTP_401_UNAUTHORIZED)
-            else:
-                return Response({
-                    'error': 'Invalid Firebase token',
-                    'debug': str(e)
-                }, status=status.HTTP_401_UNAUTHORIZED)
-                
-        except Exception as e:
-            logger.error(f"❌ Unexpected error verifying token: {str(e)}")
-            logger.error(f"Token preview: {token[:50]}...")
-            return Response({
-                'error': 'Error verifying Firebase token',
-                'debug': str(e),
-                'token_preview': token[:50] + '...' if len(token) > 50 else token
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-        # Extract user details
+        # Step 1: Decode Firebase token
+        decoded_token = firebase_auth.verify_id_token(token)
         email = decoded_token.get('email')
-        if not email:
-            logger.error("❌ No email found in token")
-            return Response({
-                'error': 'Email not found in token',
-                'debug': 'Token does not contain email field'
-            }, status=status.HTTP_401_UNAUTHORIZED)
-            
         name = decoded_token.get('name', '')
-        picture = decoded_token.get('picture', '')
-        token_uid = decoded_token.get('uid') or decoded_token.get('user_id')
-        
-        logger.info(f"📋 Extracted user details:")
-        logger.info(f"  - Email: {email}")
-        logger.info(f"  - Name: {name}")
-        logger.info(f"  - Picture: {picture[:50]}..." if picture else "  - Picture: None")
-        logger.info(f"  - UID: {token_uid}")
-        
-        # Verify that the token UID matches the provided Firebase UID
-        if firebase_uid and token_uid != firebase_uid:
-            logger.error(f"❌ Token UID mismatch - Token UID: {token_uid}, Provided UID: {firebase_uid}")
-            return Response({
-                'error': 'Token UID mismatch',
-                'debug': f'Token UID: {token_uid}, Provided UID: {firebase_uid}'
-            }, status=status.HTTP_401_UNAUTHORIZED)
+        firebase_uid = decoded_token.get('uid') or user_id
 
-        # Find or create the user
-        try:
-            user, created = User.objects.get_or_create(
+        if not email:
+            return Response({'error': 'Email not found in token'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Step 2: Find or create user
+        user = CustomUser.objects.filter(email__iexact=email).first()
+        if not user:
+            user = CustomUser.objects.create_user(
                 email=email,
-                defaults={
-                    'username': email,  
-                    'first_name': name.split(' ')[0] if name and ' ' in name else name or '',
-                    'last_name': name.split(' ')[1] if name and ' ' in name else '',
-                    'is_active': True,
-                }
+                username=email,  # Or use firebase_uid as username
+                first_name=name.split(' ')[0] if name else '',
+                last_name=name.split(' ')[1] if name and ' ' in name else '',
+                firebase_uid=firebase_uid,
+                is_active=True,
             )
-            
-            logger.info(f"👤 User {'created' if created else 'found'}: {user.email}")
+            created = True
+        else:
+            if not user.firebase_uid:
+                user.firebase_uid = firebase_uid
+                user.save()
+            created = False
 
-            # Generate JWT tokens
-            refresh = RefreshToken.for_user(user)
-            access_token = str(refresh.access_token)
-            refresh_token = str(refresh)
-            
-            logger.info("✅ LOGIN SUCCESSFUL")
-            return Response({
-                'access_token': access_token,
-                'refresh_token': refresh_token,
-                'user': {
-                    'id': user.id,
-                    'email': user.email,
-                    'name': name,
-                    'picture': picture,
-                    'firebase_uid': token_uid,
-                    'is_new': created
-                }
-            }, status=status.HTTP_200_OK)
-            
-        except Exception as e:
-            logger.error(f"❌ Error creating/updating user: {str(e)}")
-            return Response({
-                'error': 'Error creating/updating user',
-                'debug': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
-    except Exception as e:
-        logger.error(f"❌ Unexpected error in google_login: {str(e)}")
+        # Step 3: Generate JWT tokens
+        refresh = RefreshToken.for_user(user)
         return Response({
-            'error': 'Unexpected error occurred',
-            'debug': str(e)
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            'access_token': str(refresh.access_token),
+            'refresh_token': str(refresh),
+            'user': {
+                'id': user.id,
+                'email': user.email,
+                'name': name,
+                'firebase_uid': firebase_uid,
+                'is_new': created
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Error in google_login: {str(e)}", exc_info=True)
+        return Response(
+            {'error': 'Authentication failed', 'debug': str(e) if settings.DEBUG else None},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_youtube_auth_url(request):
