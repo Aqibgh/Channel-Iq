@@ -78,5 +78,6 @@ urlpatterns = [
     path('auth/google-login/', views.google_login, name='google-login'),
     path('youtube/get-auth-url/', views.get_youtube_auth_url, name='youtube_auth_url'),
     path('youtube/update-seo/', views.update_youtube_seo, name='update_youtube_seo'),
-    path('generate-report/', views.generate_report, name='generate_report'),  # New endpoint for report generation
+    path('generate-report/', views.generate_report, name='generate_report'),
+    path('csrf/', views.csrf_token, name='csrf_token')
 ]

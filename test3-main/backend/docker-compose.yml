@@ -15,12 +15,21 @@ services:
       - media_volume:/app/media
       - logs_volume:/app/logs
       - sqlite_data:/app/data
+      - ./firebase_credential.json:/app/firebase_credential.json
     networks:
       - app_network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
     mem_limit: 1g
     memswap_limit: 2g
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health/ || python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health/')\""]
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health/ || python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health/', timeout=5)\" || exit 1"]
       interval: 30s
       timeout: 15s
       retries: 5
@@ -38,12 +47,17 @@ services:
       - static_volume:/app/staticfiles:ro
       - media_volume:/app/media:ro
       - logs_volume:/var/log/nginx
-      - /var/www/certbot:/var/www/certbot:ro
+      - ./certbot-www:/var/www/certbot:ro
     depends_on:
       web:
-        condition: service_started
+        condition: service_started  # Changed from service_healthy to service_started
     networks:
       - app_network
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost/health/ || exit 1"]
       interval: 30s

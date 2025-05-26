@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 import firebase_admin
 from firebase_admin import credentials
 
-
 # Load environment variables from .env file
 load_dotenv()
 
@@ -20,9 +19,12 @@ if not SECRET_KEY:
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 # Hosts allowed to access the application
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
-if not ALLOWED_HOSTS:
-    raise ValueError("ALLOWED_HOSTS environment variable is not set")
+ALLOWED_HOSTS_ENV = os.getenv('ALLOWED_HOSTS', '')
+if ALLOWED_HOSTS_ENV:
+    ALLOWED_HOSTS = ALLOWED_HOSTS_ENV.split(',')
+else:
+    # Default allowed hosts for development
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'channel-iq.nzxtsol.com', 'www.channel-iq.nzxtsol.com']
 
 # Security Settings
 SECURE_SSL_REDIRECT = not DEBUG
@@ -35,8 +37,6 @@ SECURE_HSTS_SECONDS = 31536000  # 1 year
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 
-
-
 # Installed apps
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -46,7 +46,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'corsheaders',
+    'corsheaders',  # Make sure this is here
     'django.contrib.sites',
     'allauth',
     'allauth.account',
@@ -57,11 +57,11 @@ INSTALLED_APPS = [
     'app',
 ]
 
-# Middleware
+# Middleware - IMPORTANT: CorsMiddleware must be at the top
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',  # MUST BE FIRST
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
-     'corsheaders.middleware.CorsMiddleware',  # For static files
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -71,17 +71,90 @@ MIDDLEWARE = [
     'allauth.account.middleware.AccountMiddleware',
 ]
 
-# CORS Configuration
-CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', '').split(',')
+# CORS Configuration - Fixed to handle environment variables properly
+CORS_ALLOWED_ORIGINS_ENV = os.getenv('CORS_ALLOWED_ORIGINS', '')
+if CORS_ALLOWED_ORIGINS_ENV:
+    CORS_ALLOWED_ORIGINS = [origin.strip() for origin in CORS_ALLOWED_ORIGINS_ENV.split(',') if origin.strip()]
+else:
+    # Default CORS origins for development
+    CORS_ALLOWED_ORIGINS = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://channel-iq.nzxtsol.com",
+        "https://www.channel-iq.nzxtsol.com",
+        "https://channeliq.vercel.app"
+    ]
+
+# CSRF Configuration - Fixed to handle environment variables properly
+CSRF_TRUSTED_ORIGINS_ENV = os.getenv('CSRF_TRUSTED_ORIGINS', '')
+if CSRF_TRUSTED_ORIGINS_ENV:
+    CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in CSRF_TRUSTED_ORIGINS_ENV.split(',') if origin.strip()]
+else:
+    # Default CSRF trusted origins
+    CSRF_TRUSTED_ORIGINS = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://channel-iq.nzxtsol.com",
+        "https://www.channel-iq.nzxtsol.com",
+        "https://channeliq.vercel.app"
+    ]
+CSRF_COOKIE_HTTPONLY = False  # Allows JS to read the CSRF cookie
+CSRF_USE_SESSIONS = False
+CSRF_COOKIE_SECURE = True     # For HTTPS
+CSRF_COOKIE_SAMESITE = 'None' # Required for cross-site cookies
+# Additional CORS settings
 CORS_ALLOW_CREDENTIALS = True
-CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',')
+CORS_ALLOW_ALL_ORIGINS = DEBUG  # Only allow all origins in debug mode
+
+# CORS headers
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'X-CSRFToken',
+    'x-requested-with',
+]
+
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+# Session and CSRF cookie settings for cross-origin requests
+if not DEBUG:
+    SESSION_COOKIE_SAMESITE = 'None'
+    CSRF_COOKIE_SAMESITE = 'None'
+else:
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    CSRF_COOKIE_SAMESITE = 'Lax'
+
+# Custom user model
 AUTH_USER_MODEL = 'app.CustomUser'
+
 # Database Configuration
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'data' / 'db.sqlite3',
     }
+}
+
+# YouTube configuration
+YOUTUBE_COOKIES_BROWSER = 'firefox'
+YOUTUBE_COOKIES_FILE = os.path.join(BASE_DIR, 'youtube_cookies.txt')
+YOUTUBE_DL_CONFIG = {
+    'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'sleep_interval': 2,  # Sleep between requests
+    'max_sleep_interval': 5,
+    'retries': 3,
 }
 
 # Static and Media Files
@@ -92,7 +165,7 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-
+# AWS Configuration
 AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
 AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME')
@@ -136,6 +209,11 @@ LOGGING = {
     },
     'loggers': {
         'django': {
+            'handlers': ['file', 'console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'app': {  # Add logging for your app
             'handlers': ['file', 'console'],
             'level': 'INFO',
             'propagate': True,

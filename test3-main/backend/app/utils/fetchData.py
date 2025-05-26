@@ -1,12 +1,17 @@
 import yt_dlp
 import json
-
+import os
+from django.conf import settings  # Ensure Django settings is imported
 
 def fetch_video_metadata(url):
     ydl_opts = {
         'quiet': True,
         'forcejson': True,
     }
+
+    # Add cookies file from settings if it exists
+    if hasattr(settings, 'YOUTUBE_COOKIES_FILE') and os.path.exists(settings.YOUTUBE_COOKIES_FILE):
+        ydl_opts['cookiefile'] = settings.YOUTUBE_COOKIES_FILE
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -27,4 +32,4 @@ def fetch_video_metadata(url):
             return video_metadata
     except Exception as e:
         print(f"Error fetching video metadata: {str(e)}")
-        return None
+        return

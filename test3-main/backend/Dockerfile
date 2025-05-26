@@ -59,7 +59,7 @@ RUN pip install --no-cache-dir numpy && \
     pip install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
         torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
     pip install --no-cache-dir -r /tmp/requirement.txt
-
+RUN pip install -U yt-dlp
 # Clean up build dependencies and cache
 RUN apt-get remove -y \
     build-essential \
@@ -94,6 +94,7 @@ RUN mkdir -p /app/logs /app/media /app/staticfiles /app/data && \
 
 # Switch to non-root user
 USER appuser
+
 # Collect static files
 RUN python manage.py collectstatic --noinput || echo "Static files collection failed, continuing..."
 
@@ -113,7 +114,7 @@ CMD ["gunicorn", \
      "--worker-connections", "50", \
      "--max-requests", "1000", \
      "--max-requests-jitter", "100", \
-     "--timeout", "300", \
+     "--timeout", "1000", \
      "--keep-alive", "5", \
      "--preload", \
      "--access-logfile", "/app/logs/gunicorn-access.log", \

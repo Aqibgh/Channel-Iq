@@ -7,6 +7,7 @@ import yt_dlp
 from openai import OpenAI
 import math
 from pydub import AudioSegment
+from django.conf import settings  # Make sure this is available if running inside Django
 
 def analyze_video(video_url, youtube_credentials=None, openai_api_key=None):
     """
@@ -102,7 +103,6 @@ def get_whisper_transcript(video_url, api_key, max_size_mb=24):
     temp_dir = tempfile.mkdtemp()
     
     try:
-        # Download audio with yt-dlp
         ydl_opts = {
             'format': 'bestaudio/best',
             'outtmpl': os.path.join(temp_dir, 'audio.%(ext)s'),
@@ -113,21 +113,23 @@ def get_whisper_transcript(video_url, api_key, max_size_mb=24):
             'quiet': True,
             'no_warnings': True
         }
-        
+
+        # Add cookie file if it exists in Django settings
+        if hasattr(settings, 'YOUTUBE_COOKIES_FILE') and os.path.exists(settings.YOUTUBE_COOKIES_FILE):
+            ydl_opts['cookiefile'] = settings.YOUTUBE_COOKIES_FILE
+
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(video_url, download=True)
             audio_path = ydl.prepare_filename(info)
             audio_path = audio_path.replace('.webm', '.wav').replace('.mp4', '.wav')
-        
+
         if not os.path.exists(audio_path):
             return {'status': 'error', 'message': 'Audio file not found'}
-        
-        # Check file size and split if needed
+
         file_size = os.path.getsize(audio_path)
-        max_size = max_size_mb * 1024 * 1024  # Convert MB to bytes
-        
+        max_size = max_size_mb * 1024 * 1024
+
         if file_size <= max_size:
-            # Process normally if under size limit
             with open(audio_path, "rb") as audio_file:
                 result = client.audio.transcriptions.create(
                     file=audio_file,
@@ -135,23 +137,22 @@ def get_whisper_transcript(video_url, api_key, max_size_mb=24):
                 )
             transcript = result.text
         else:
-            # Split and process in chunks
             transcript = process_large_audio(client, audio_path, max_size)
-        
+
         return {
             'status': 'success',
             'source': 'whisper',
             'transcript': transcript,
             'message': ''
         }
-        
+
     except Exception as e:
         return {'status': 'error', 'message': f'Whisper error: {str(e)}'}
     finally:
-        # Clean up temp files
         for file in os.listdir(temp_dir):
             os.remove(os.path.join(temp_dir, file))
         os.rmdir(temp_dir)
+
 
 def process_large_audio(client, audio_path, max_size):
     """Split large audio file and process chunks with Whisper"""
@@ -272,30 +273,3 @@ def extract_action_items(analysis_text):
             items.append(f"{current_section}: {line}" if current_section else line)
     
     return items[:15]  # Return top 15 suggestions
-
-if __name__ == "__main__":
-    # Configuration - replace with your actual credentials
-    YOUTUBE_CREDENTIALS = None  # Set up OAuth if using YouTube API
-    
-    # Example video URL - replace with yours
-    video_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-    
-    print(f"Starting analysis for: {video_url}")
-    result = analyze_video(
-        video_url,
-        youtube_credentials=YOUTUBE_CREDENTIALS,
-        openai_api_key=OPENAI_API_KEY
-    )
-    
-    if result['status'] == 'success':
-        print("\n=== Transcript Preview ===")
-        print(result['transcript'])
-        
-        print("\n=== Full Analysis Report ===")
-        print(result['full_analysis'])
-        
-        print("\n=== Key Actionable Suggestions ===")
-        for i, suggestion in enumerate(result['key_suggestions'], 1):
-            print(f"{i}. {suggestion}")
-    else:
-        print(f"\nError: {result['message']}")

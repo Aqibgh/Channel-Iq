@@ -18,6 +18,7 @@ import tiktoken
 import numpy as np
 from datetime import timedelta
 import torch
+from django.conf import settings  # Make sure this is available if running inside Django
 
 class EnhancedYouTubeSEOGenerator:
     def __init__(self, youtube_api_key: Optional[str] = None, openai_api_key: Optional[str] = None):
@@ -148,13 +149,18 @@ class EnhancedYouTubeSEOGenerator:
     def download_and_transcribe(self, youtube_url: str) -> Dict[str, Any]:
         """Download and transcribe video using Faster Whisper with timestamps."""
         try:
+            # Prepare yt-dlp options
             ydl_opts = {
                 'format': 'bestaudio/best',
                 'extractaudio': True,
-                'audioquality': 0,  # Better quality
+                'audioquality': 0,
                 'outtmpl': tempfile.mktemp(),
                 'quiet': True
             }
+
+            # Add cookie file from Django settings
+            if hasattr(settings, 'YOUTUBE_COOKIES_FILE') and os.path.exists(settings.YOUTUBE_COOKIES_FILE):
+                ydl_opts['cookiefile'] = settings.YOUTUBE_COOKIES_FILE
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info_dict = ydl.extract_info(youtube_url, download=True)
@@ -164,23 +170,16 @@ class EnhancedYouTubeSEOGenerator:
             wav_file = audio_file + ".wav"
             audio.export(wav_file, format="wav")
 
-            # Using larger model for better accuracy
             model = WhisperModel("medium", device="cuda" if torch.cuda.is_available() else "cpu")
             segments, _ = model.transcribe(wav_file, beam_size=5, vad_filter=True)
-            
-            # Create full transcript text
-            transcript_text = " ".join([segment.text for segment in segments])
-            
-            # Create segments with timestamps
-            transcript_segments = []
-            for segment in segments:
-                transcript_segments.append({
-                    "start": segment.start,
-                    "end": segment.end,
-                    "text": segment.text
-                })
 
-            # Cleanup
+            transcript_text = " ".join([segment.text for segment in segments])
+            transcript_segments = [{
+                "start": segment.start,
+                "end": segment.end,
+                "text": segment.text
+            } for segment in segments]
+
             os.remove(audio_file)
             os.remove(wav_file)
 

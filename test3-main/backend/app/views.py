@@ -205,7 +205,7 @@ def extract_youtube_id(url):
 
 def get_video_duration_yt_dlp(url):
     """
-    Get video duration using yt-dlp (more reliable than pytube)
+    Get video duration using yt-dlp with optional YouTube cookies
     """
     try:
         # Check if yt-dlp is installed
@@ -214,18 +214,26 @@ def get_video_duration_yt_dlp(url):
         except (subprocess.SubprocessError, FileNotFoundError):
             logger.warning("yt-dlp not found. Installing...")
             subprocess.run(['pip', 'install', 'yt-dlp'], check=True)
-        
-        # Get duration using yt-dlp
-        cmd = ['yt-dlp', '--get-duration', '--skip-download', url]
+
+        # Build the yt-dlp command
+        cmd = ['yt-dlp', '--get-duration', '--skip-download']
+
+        # Add cookies if available
+        if hasattr(settings, 'YOUTUBE_COOKIES_FILE') and settings.YOUTUBE_COOKIES_FILE:
+            cmd += ['--cookies', settings.YOUTUBE_COOKIES_FILE]
+
+        # Add the video URL
+        cmd.append(url)
+
+        # Run the command
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        
-        # Get the output
+
+        # Get and parse the duration string
         duration_str = result.stdout.strip()
         logger.info(f"yt-dlp duration result: {duration_str}")
-        
-        # Parse the duration string (format: HH:MM:SS or MM:SS)
+
         parts = duration_str.split(':')
-        
+
         if len(parts) == 3:  # HH:MM:SS
             hours, minutes, seconds = map(int, parts)
             return hours * 3600 + minutes * 60 + seconds
@@ -237,11 +245,11 @@ def get_video_duration_yt_dlp(url):
         else:
             logger.warning(f"Could not parse duration: {duration_str}")
             return None
-            
+
     except Exception as e:
         logger.error(f"Error getting duration with yt-dlp: {e}")
-        
-        # Try fallback method using ffprobe if available
+
+        # Optional: fallback to ffprobe if you want
         try:
             return get_video_duration_ffprobe(url)
         except Exception as ffprobe_error:
@@ -1132,15 +1140,49 @@ def download_video(request):
     if not video_id:
         return JsonResponse({"error": "Invalid YouTube URL"}, status=400)
 
-    # Check video duration before downloading
-    try:
-        # Create a YoutubeDL object with info extraction only
-        ydl_info_opts = {
+    # Enhanced yt-dlp options to avoid bot detection
+    def get_ydl_opts(download=False, output_path=None):
+        opts = {
             'quiet': True,
             'no_warnings': True,
-            'skip_download': True,  # Don't download, just get info
             'logger': logger,
+            # User agent and headers to appear more like a regular browser
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-us,en;q=0.5',
+                'Accept-Encoding': 'gzip,deflate',
+                'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.7',
+                'Keep-Alive': '300',
+                'Connection': 'keep-alive',
+            },
+            # Additional options to avoid detection
+            'sleep_interval': 1,
+            'max_sleep_interval': 3,
+            'sleep_interval_requests': 1,
+            'extractor_retries': 3,
+            'retries': 3,
         }
+        
+        
+        if os.path.exists(settings.YOUTUBE_COOKIES_FILE):
+            opts['cookiefile'] = settings.YOUTUBE_COOKIES_FILE
+        
+        if not download:
+            opts['skip_download'] = True
+        else:
+            opts.update({
+                'format': 'bv*[height<=1080]+ba/b[height<=1080]',
+                'merge_output_format': 'mp4',
+                'outtmpl': output_path,
+                'quiet': False,
+            })
+            
+        return opts
+
+    # Check video duration before downloading
+    try:
+        ydl_info_opts = get_ydl_opts(download=False)
         
         with yt_dlp.YoutubeDL(ydl_info_opts) as ydl:
             info = ydl.extract_info(video_url, download=False)
@@ -1149,24 +1191,32 @@ def download_video(request):
             duration = info.get('duration', 0)
             
             # Check if video is between 5 minutes and 1 hour
-            min_duration = 1 # 5 minutes in seconds
+            min_duration = 0.5 * 60  # 5 minutes in seconds
             max_duration = 60 * 60  # 1 hour in seconds
             
             if duration < min_duration:
                 return JsonResponse({
                     "error": "VIDEO_TOO_SHORT",
                     "message": "Video must be longer than 5 minutes"
-    }, status=400)
+                }, status=400)
 
             if duration > max_duration:
-                    return JsonResponse({
-                        "error": "VIDEO_TOO_LONG",
-                        "message": "Video must be shorter than 1 hour"
-                    }, status=400)
+                return JsonResponse({
+                    "error": "VIDEO_TOO_LONG",
+                    "message": "Video must be shorter than 1 hour"
+                }, status=400)
                 
     except yt_dlp.utils.DownloadError as e:
-        logger.error(f"Info extraction failed: {str(e)}")
-        return JsonResponse({"error": f"Could not validate video duration: {str(e)}"}, status=500)
+        error_message = str(e)
+        if "Sign in to confirm you're not a bot" in error_message:
+            return JsonResponse({
+                "error": "AUTHENTICATION_REQUIRED",
+                "message": "YouTube requires authentication. Please contact administrator to set up cookies.",
+                "details": "Bot detection triggered - cookies or browser authentication needed"
+            }, status=403)
+        else:
+            logger.error(f"Info extraction failed: {error_message}")
+            return JsonResponse({"error": f"Could not validate video duration: {error_message}"}, status=500)
     except Exception as e:
         logger.exception("Unexpected error during video validation")
         return JsonResponse({"error": f"Validation error: {str(e)}"}, status=500)
@@ -1220,13 +1270,7 @@ def download_video(request):
 
     # If file doesn't exist locally, proceed with download
     try:
-        ydl_opts = {
-            'format': 'bv*[height<=1080]+ba/b[height<=1080]',
-            'merge_output_format': 'mp4',
-            'outtmpl': local_file_path,
-            'quiet': False,
-            'logger': logger,
-        }
+        ydl_opts = get_ydl_opts(download=True, output_path=local_file_path)
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             logger.debug(f"Downloading video: {video_url}")
@@ -1253,14 +1297,52 @@ def download_video(request):
         })
 
     except yt_dlp.utils.DownloadError as e:
-        logger.error(f"Download failed: {str(e)}")
-        return JsonResponse({"error": f"Download error: {str(e)}"}, status=500)
+        error_message = str(e)
+        if "Sign in to confirm you're not a bot" in error_message:
+            return JsonResponse({
+                "error": "AUTHENTICATION_REQUIRED",
+                "message": "YouTube requires authentication. Please contact administrator to set up cookies.",
+                "details": "Bot detection triggered during download - cookies or browser authentication needed"
+            }, status=403)
+        else:
+            logger.error(f"Download failed: {error_message}")
+            return JsonResponse({"error": f"Download error: {error_message}"}, status=500)
     except boto3.exceptions.S3UploadFailedError as e:
         logger.error(f"S3 upload failed: {str(e)}")
         return JsonResponse({"error": f"S3 upload failed: {str(e)}"}, status=500)
     except Exception as e:
         logger.exception("Unexpected error occurred")
         return JsonResponse({"error": f"Unexpected error: {str(e)}"}, status=500)
+
+
+# Utility function to create cookies file from browser
+def create_cookies_from_browser():
+    """
+    Helper function to extract cookies from browser.
+    Call this once to set up cookies for your application.
+    """
+    try:
+        # This will extract cookies from your default browser
+        # You can specify 'chrome', 'firefox', 'safari', etc.
+        ydl_opts = {
+            'cookiesfrombrowser': ('chrome', None, None, None),
+            'quiet': True,
+            'extract_flat': True,
+        }
+        
+        # Create a temporary file to save cookies
+        cookies_path = os.path.join(settings.BASE_DIR, 'youtube_cookies.txt')
+        
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            # Extract cookies and save them
+            ydl.params['cookiefile'] = cookies_path
+            # This will create the cookies file
+            info = ydl.extract_info('https://www.youtube.com/watch?v=dQw4w9WgXcQ', download=False)
+            
+        return cookies_path
+    except Exception as e:
+        logger.error(f"Failed to create cookies file: {str(e)}")
+        return None
 def get_video(request, video_id):
     """Get video URL by video ID"""
     # Initialize S3 uploader
@@ -1999,3 +2081,16 @@ def generate_report(request):
     except Exception as e:
         logger.error(f"Error generating report: {e}")
         return JsonResponse({"error": str(e)}, status=500)
+
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.http import require_http_methods
+from django.middleware.csrf import get_token
+@ensure_csrf_cookie
+@require_http_methods(["GET"])
+def csrf_token(request):
+    """
+    Endpoint to provide CSRF token to frontend applications
+    """
+    return JsonResponse({
+        'csrfToken': get_token(request)
+    })
