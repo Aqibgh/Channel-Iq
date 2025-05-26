@@ -56,8 +56,7 @@ RUN pip install --no-cache-dir numpy && \
     pip install --no-cache-dir scipy && \
     pip install --no-cache-dir cython && \
     pip install --no-cache-dir PyYAML && \
-    pip install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
-        torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir torch torchvision torchaudio && \
     pip install --no-cache-dir -r /tmp/requirement.txt
 RUN pip install -U yt-dlp
 # Clean up build dependencies and cache

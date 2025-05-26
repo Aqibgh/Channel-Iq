@@ -55,6 +55,7 @@ PySocks==1.7.1
 python-magic==0.4.27
 SpeechRecognition==3.14.2
 whisperx
+huggingface-hub==0.20.2
 whitenoise==6.9.0
 clipsai==0.2.1
 deepface==0.0.93
