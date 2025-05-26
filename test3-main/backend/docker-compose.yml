@@ -10,30 +10,42 @@ services:
     environment:
       - DJANGO_SETTINGS_MODULE=backend.settings
       - PYTHONPATH=/app
+      - GUNICORN_WORKERS=4
+      - GUNICORN_THREADS=2
+      - GUNICORN_MAX_REQUESTS=1000
+      - GUNICORN_MAX_REQUESTS_JITTER=100
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
       - logs_volume:/app/logs
       - sqlite_data:/app/data
-      - ./firebase_credential.json:/app/firebase_credential.json
+      - ./firebase_credential.json:/app/firebase_credential.json:ro
     networks:
       - app_network
     deploy:
       resources:
         limits:
-          memory: 1G
-          cpus: '0.5'
+          memory: 6G
+          cpus: '3.0'
         reservations:
-          memory: 512M
-          cpus: '0.25'
-    mem_limit: 1g
-    memswap_limit: 2g
+          memory: 2G
+          cpus: '1.0'
+    # Remove duplicate mem_limit as deploy.resources.limits takes precedence
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health/ || python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health/', timeout=5)\" || exit 1"]
-      interval: 30s
-      timeout: 15s
-      retries: 5
-      start_period: 60s
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health/ || python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health/', timeout=10)\" || exit 1"]
+      interval: 45s
+      timeout: 20s
+      retries: 3
+      start_period: 90s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
 
   nginx:
     image: nginx:1.25-alpine
@@ -48,36 +60,98 @@ services:
       - media_volume:/app/media:ro
       - logs_volume:/var/log/nginx
       - ./certbot-www:/var/www/certbot:ro
+      - /tmp/nginx_cache:/var/cache/nginx
     depends_on:
       web:
-        condition: service_started  # Changed from service_healthy to service_started
+        condition: service_started
     networks:
       - app_network
     deploy:
       resources:
         limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
           memory: 128M
           cpus: '0.25'
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost/health/ || exit 1"]
+      interval: 60s
+      timeout: 15s
+      retries: 3
+      start_period: 45s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Optional: Add Redis for caching (recommended for Django)
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru --save 900 1 --save 300 10 --save 60 10000
+    volumes:
+      - redis_data:/data
+    networks:
+      - app_network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "2"
 
 volumes:
   sqlite_data:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/app_data/sqlite
   static_volume:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/app_data/static
   media_volume:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/app_data/media
   logs_volume:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/app_data/logs
+  redis_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/app_data/redis
 
 networks:
   app_network:
     driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: br-django-app
     ipam:
       config:
         - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
