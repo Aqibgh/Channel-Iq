@@ -85,29 +85,7 @@ const HomePage = () => {
   }, []);
   // Update the useEffect to actually use the scrollLocked value
 // Update your scroll lock useEffect hook to this:
-useEffect(() => {
-  const handleScroll = (e) => {
-    if (scrollLocked) {
-      e.preventDefault();
-      e.stopPropagation();
-      window.scrollTo(0, 0);
-    }
-  };
 
-  if (scrollLocked) {
-    window.scrollTo(0, 0);
-    // Use { passive: false } to ensure preventDefault works
-    window.addEventListener('wheel', handleScroll, { passive: false });
-    window.addEventListener('touchmove', handleScroll, { passive: false });
-    document.body.classList.add('scroll-lock');
-  }
-
-  return () => {
-    window.removeEventListener('wheel', handleScroll);
-    window.removeEventListener('touchmove', handleScroll);
-    document.body.classList.remove('scroll-lock');
-  };
-}, [scrollLocked]);
 
   const scrollToClipper = () => {
     setScrollLocked(false);
