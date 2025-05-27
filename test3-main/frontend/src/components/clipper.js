@@ -451,7 +451,6 @@ try {
                   } else if (longFormError.message.includes("timeout")) {
                       showErrorMessage("Request timed out. Your video might be too large or our servers are busy.");
                   } else {
-                      // Something happened in setting up the request that triggered an Error
                       showErrorMessage(`Error setting up request: ${longFormError.message}`);
                   }
                   throw longFormError; // Re-throw to prevent further execution
@@ -685,7 +684,7 @@ try {
   />
   <button
     onClick={handleFetch}
-    disabled={loading || isProcessingVideo || !videoURL}
+    disabled={loading || isProcessingVideo || !videoURL || generatingReport || processing}
     className="fetch-btn"
   >
     {loading ? (
@@ -833,25 +832,26 @@ try {
     
 
     <button
-      onClick={handleGenerateReport}
-      disabled={generatingReport || !videoData}
-      className="btn btn--secondary generate-report-btn"
-    >
-      {generatingReport ? (
-        <span className="loading-text">Analyzing...</span>
-      ) : (
-        "Get Report"
-      )}
-    </button>
-    <button
       onClick={handleGenerateClick}
-      disabled={processing || !videoData}
+      disabled={processing || !videoData || generatingReport}
       className="btn btn--primary generate-btn"
     >
       {processing ? (
         <span className="loading-text">Processing...</span>
       ) : (
         "Generate"
+      )}
+    </button>
+
+    <button
+      onClick={handleGenerateReport}
+      disabled={generatingReport || !videoData || processing}
+      className="btn btn--secondary generate-report-btn"
+    >
+      {generatingReport ? (
+        <span className="loading-text">Analyzing...</span>
+      ) : (
+        "Get Report"
       )}
     </button>
 

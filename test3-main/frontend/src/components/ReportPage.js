@@ -110,7 +110,7 @@ function ReportPage() {
           <div className="action-buttons">
             <button 
               className="comparison-btn-lf"
-              onClick={() => navigate("/clipper")}
+              onClick={() => navigate("/home")}
             >
               Return to Clipper
             </button>
