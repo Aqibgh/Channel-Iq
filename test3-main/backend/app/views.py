@@ -935,7 +935,78 @@ def optimize_shortform(request):
                     }
             
             # Send email notification if user email is provided
-    
+            if user_email:
+                try:
+                    # Generate list of processed features
+                    processed_features = []
+                    for feature in selected_features:
+                        if feature == "SEO" and "seo" in results and "error" not in results["seo"]:
+                            processed_features.append("SEO")
+                        elif feature == "Video Quality" and "video_upscaling" in results and "error" not in results["video_upscaling"]:
+                            processed_features.append("Video Quality")
+                        elif feature == "Noise Reduction" and "audio_processing" in results and results["audio_processing"].get("status") == "success":
+                            processed_features.append("Noise Reduction")
+                        elif feature == "Captions" and "captions" in results and results["captions"].get("status") == "success":
+                            processed_features.append("Captions")
+                    
+                    # Generate feature list text
+                    feature_list = ", ".join(processed_features)
+                    
+                    # Construct email subject and message
+                    subject = "Your Short-Form Video Optimization is Complete"
+                    
+                    # Construct the message body
+                    message = f"Hello,\n\nYour short-form video has been successfully optimized with the following features: {feature_list}.\n\n"
+                    
+                    # Add S3 URL if available
+                    if final_s3_url:
+                        message += f"You can access your optimized video here: {final_s3_url}\n\n"
+                    
+                    # Add SEO details if available
+                    if "seo" in results and "error" not in results["seo"]:
+                        seo_data = results["seo"]
+                        message += "SEO Recommendations:\n"
+                        if "title" in seo_data:
+                            message += f"- Title: {seo_data['title']}\n"
+                        if "description" in seo_data:
+                            message += f"- Description: {seo_data['description']}\n"
+                        if "tags" in seo_data and seo_data["tags"]:
+                            message += f"- Tags: {', '.join(seo_data['tags'])}\n"
+                    
+                    message += "\nThank you for using our service!\n"
+                    
+                    # Send email
+                    from_email = settings.DEFAULT_FROM_EMAIL
+                    send_mail(subject, message, from_email, [user_email], fail_silently=False)
+                    
+                    # Log success
+                    logger.info(f"Email notification sent to {user_email}")
+                    results["email_notification"] = {"status": "success", "email": user_email}
+                    
+                except Exception as e:
+                    logger.error(f"Error sending email notification: {e}")
+                    results["email_notification"] = {"status": "error", "message": str(e)}
+            
+            # Clean up local files
+            try:
+                # Delete the original downloaded file
+                if os.path.exists(local_clip_path):
+                    os.remove(local_clip_path)
+                
+                # Delete intermediate processed files
+                if upscaled_video_path and os.path.exists(upscaled_video_path):
+                    os.remove(upscaled_video_path)
+                
+                if enhanced_video_path and os.path.exists(enhanced_video_path):
+                    os.remove(enhanced_video_path)
+                
+                if captioned_video_path and os.path.exists(captioned_video_path):
+                    os.remove(captioned_video_path)
+                
+                logger.info("Cleaned up local temporary files")
+            except Exception as e:
+                logger.warning(f"Error cleaning up local files: {e}")
+                # Don't return an error if cleanup fails, just log it
             
             return JsonResponse({
                 "message": "Processing completed successfully",
