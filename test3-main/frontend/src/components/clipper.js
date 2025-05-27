@@ -836,32 +836,38 @@ try {
       
                       {/* Action Buttons Container */}
                       <div className="action-buttons-container">
-                        <div className="generate-btn">
+                        <div className="button-container">
                           <button
                             onClick={handleGenerateClick}
                             disabled={processing || !videoData}
-                            className="btn btn--primary"
+                            className="btn btn--primary generate-btn"
                           >
-                            {processing ? "Processing..." : "Generate"}
+                            {processing ? (
+                              <span className="loading-text">Processing...</span>
+                            ) : (
+                              "Generate"
+                            )}
                           </button>
-                        </div>
-                        <div className="generate-report-btn">
+
                           <button
                             onClick={handleGenerateReport}
                             disabled={generatingReport || !videoData}
-                            className="btn btn--secondary"
+                            className="btn btn--secondary generate-report-btn"
                           >
-                            {generatingReport ? "Analyzing..." : "Generate Report"}
+                            {generatingReport ? (
+                              <span className="loading-text">Analyzing...</span>
+                            ) : (
+                              "Generate Report"
+                            )}
                           </button>
-                        </div>
-                        <div className="show-dashboard-btn">
+
                           <button
-                            className="btn--outline"
                             onClick={() => setShowDashboard(!showDashboard)}
+                            className="btn btn--outline show-dashboard-btn"
                           >
                             {showDashboard ? "Hide Videos" : "Show Videos"}
                           </button>
-                        </div>
+                        </div>
                       </div>
                     </div>
                   ) : (

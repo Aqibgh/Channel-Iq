@@ -296,7 +296,78 @@
 }
 
 
-/* Loading Spinner - Enhanced */
+/* Common Button Container Styles */
+.button-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin: 1rem auto;
+  flex-wrap: nowrap; /* Changed from wrap to keep buttons in line */
+  width: 100%;
+  max-width: 800px;
+  padding: 0 1rem;
+}
+
+/* Common Button Styles */
+.generate-btn,
+.show-dashboard-btn,
+.generate-report-btn {
+  background: linear-gradient(135deg, var(--color-purple-medium), var(--color-purple-dark));
+  color: var(--color-white);
+  border: none;
+  border-radius: var(--border-radius-md);
+  padding: 0.75rem 1.5rem;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-width: 140px;
+  max-width: 180px;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(126, 34, 206, 0.3);
+  font-size: 0.95rem;
+  margin: 0 0.5rem;
+  flex: 0 1 auto; /* Don't allow buttons to grow but allow shrinking */
+}
+
+/* Hover state */
+.generate-btn:hover,
+.show-dashboard-btn:hover,
+.generate-report-btn:hover {
+  background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary));
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(126, 34, 206, 0.4);
+}
+
+/* Active state */
+.generate-btn:active,
+.show-dashboard-btn:active,
+.generate-report-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(126, 34, 206, 0.3);
+}
+
+/* Disabled state */
+.generate-btn:disabled,
+.show-dashboard-btn:disabled,
+.generate-report-btn:disabled {
+  background: var(--color-purple-dark);
+  cursor: not-allowed;
+  opacity: 0.7;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Loading text style */
+.loading-text {
+  font-size: 0.9rem;
+}
+
+/* Enhanced Loading Spinner */
 .loading-spinner {
   display: inline-flex;
   align-items: center;
@@ -304,11 +375,11 @@
 }
 
 .spinner-dot {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   background-color: var(--color-white);
   border-radius: 50%;
-  margin: 0 2px;
+  margin: 0 3px;
   animation: bounce 1.4s infinite ease-in-out both;
 }
 
@@ -512,7 +583,7 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    height: 100%; /* Ensure containers stretch to full height */
+    height: 270px; /* Ensure containers stretch to full height */
   }
 }
 
@@ -581,7 +652,7 @@
 
 .video-preview-container {
   background: rgba(126, 34, 206, 0.1);
-  border-radius: var(--border-radius-md); /* Smaller border radius */
+  border-radius: var(--border-radius-lg); /* Smaller border radius */
   padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-sm) var(--spacing-sm); /* Reduced padding */
   padding-top: 20px; /* Add padding-top to push it down a little */
   transition: all var(--transition-normal);
@@ -761,13 +832,11 @@
 .optimization-type {
   background: rgba(126, 34, 206, 0.2);
   border-radius: var(--border-radius-lg);
-  padding: var(--spacing-sm); /* Reduced padding */
+  padding: var(--spacing-sm);
   transition: all var(--transition-normal);
   border: 1px solid rgba(126, 34, 206, 0.2);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); /* Slightly reduced shadow */
-  position: relative;
-  overflow: hidden;
-  margin-bottom: var(--spacing-sm); /* Reduced margin-bottom */
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  margin-bottom: var(--spacing-lg); /* Add margin bottom for gap */
 }
 
 .optimization-type h3 {
@@ -818,11 +887,13 @@
 /* Feature Buttons with Enhanced Animation */
 .features {
   background: rgba(126, 34, 206, 0.2);
-  border-radius: var(--border-radius-sm); /* Reduced border radius */
-  padding: var(--spacing-md); /* Reduced padding */
+  border-radius: var(--border-radius-sm);
+  padding:  var(--spacing-md);
   border: 1px solid rgba(126, 34, 206, 0.2);
-  margin-bottom: var(--spacing-md); /* Reduced margin-bottom */
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); /* Slightly reduced shadow */
+  margin-top:  var(--spacing-sm); /* Add margin top for gap */
+  margin-bottom: 1px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  border-radius: 20px;
 }
 
 .features h3 {
@@ -934,7 +1005,7 @@
 /* Short Form Options - Matching style with features */
 .short-form-options {
   background: rgba(126, 34, 206, 0.2);
-  border-radius: var(--border-radius-sm); /* Reduced border radius */
+  border-radius: 20px; /* Reduced border radius */
   padding: var(--spacing-md); /* Reduced padding */
   border: 1px solid rgba(126, 34, 206, 0.2);
   margin-bottom: var(--spacing-md); /* Reduced margin-bottom */
@@ -1077,518 +1148,119 @@
   }
 }
 
-/* Accessibility Focus Styles */
-button:focus, input:focus, select:focus {
-  outline: 2px solid var(--color-purple-light);
-  outline-offset: 2px;
-}
-
-/* Print Styles */
-@media print {
-  .video-processor {
-    background: white !important;
-    color: black !important;
+/* Add these mobile-specific adjustments */
+@media (max-width: 480px) {
+  .placeholder-content {
+    padding: 1rem;
   }
-  
-  .url-input-container,
-  .video-preview-container,
-  .settings-container {
-    border: 1px solid #ddd !important;
 
+  .placeholder-icon {
+    font-size: 2rem; /* Reduced from 3rem */
+    margin-bottom: 0.5rem;
   }
-  
 
-}
-/* Enhanced Generate Button with Higher Positioning */
-.generate-btn {
-  text-align: center;
-  margin-top: var(--spacing-xs);
-  color: var(--color-primary);
-}
-
-.generate-btn button {
-  padding: 0.85rem 2.5rem; /* Adjust padding for better compactness */
-  background: linear-gradient(135deg, var(--color-purple-medium), var(--color-purple-dark));
-  color: var(--color-white);
-  transition: all var(--transition-normal);
-  box-shadow: 
-    0 4px 15px rgba(126, 34, 206, 0.3),
-    0 2px 4px rgba(0, 0, 0, 0.1); /* Added subtle shadow for depth */
-  position: relative;
-  overflow: hidden;
-  border: none;
-  border-radius: var(--border-radius-pill);
-  z-index: 10; /* Keeps the button above other elements */
-  cursor: pointer;
-  font-size: 1rem;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  display: inline-block; /* Better for single-page layout */
-}
-
-/* Glow effect around the button */
-.generate-btn button::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 90%;
-  height: 90%;
-  transform: translate(-50%, -50%);
-  background: var(--color-purple-medium);
-  filter: blur(20px);
-  opacity: 0.5;
-  transition: all var(--transition-normal);
-  z-index: 0;
-}
-
-.generate-btn button:hover {
-  background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary)); /* Gradient change on hover */
-  transform: translateY(-3px) scale(1.02); /* Slightly lift and scale up */
-  box-shadow: 
-    0 15px 30px rgba(126, 34, 206, 0.5),
-    0 4px 8px rgba(0, 0, 0, 0.1); /* Enhanced shadow on hover */
-}
-
-/* Highlight glow effect on hover */
-.generate-btn button:hover::before {
-  opacity: 0.7;
-  filter: blur(25px);
-  width: 100%;
-  height: 100%;
-}
-
-.generate-btn button:active {
-  transform: translateY(-1px); /* Slight push on active */
-  box-shadow: 
-    0 5px 15px rgba(126, 34, 206, 0.4),
-    0 2px 4px rgba(0, 0, 0, 0.1); /* Slight shadow adjustment on active */
-}
-
-/* Optional: Add a slight additional margin to button for pulling it up (like CTA) */
-.generate-btn {
-  position: relative;
-  margin-top: -1.5rem; /* Pulls the button up */
-  margin-bottom: 1.5rem; /* Ensures spacing below remains good */
-  z-index: 10;
-}
-/* Show Dashboard Button with Enhanced Style */
-.show-dashboard-btn {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 1rem;
-  color: var(--color-primary);
-  font-weight: var(--font-weight-medium);
-  margin-top: -70px; /* Pulls the button up */
-}
-
-.show-dashboard-btn button {
-  padding: 0.85rem 2.5rem; /* Adjust padding for compactness */
-  background: linear-gradient(135deg, var(--color-purple-medium), var(--color-purple-dark)); /* Gradient background */
-  color: var(--color-white);
-  border: none;
-  border-radius: var(--border-radius-pill);
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--transition-normal);
-  position: relative;
-  overflow: hidden;
-  z-index: 10; /* Keeps the button above other elements */
-  display: inline-block; /* Better for layout */
-  box-shadow: 
-    0 2px 15px rgba(126, 34, 206, 0.3),
-    0 2px 4px rgba(0, 0, 0, 0.1); /* Added subtle shadow for depth */
-}
-
-/* Glow effect around the button */
-.show-dashboard-btn button::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 90%;
-  height: 90%;
-  transform: translate(-50%, -50%);
-  background: var(--color-purple-medium);
-  filter: blur(20px);
-  opacity: 0.5;
-  transition: all var(--transition-normal);
-  z-index: 0;
-}
-
-.show-dashboard-btn button:hover {
-  background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary)); /* Gradient change on hover */
-  transform: translateY(-3px) scale(1.02); /* Slightly lift and scale up */
-  box-shadow: 
-    0 15px 30px rgba(126, 34, 206, 0.5),
-    0 4px 8px rgba(0, 0, 0, 0.1); /* Enhanced shadow on hover */
-}
-
-/* Highlight glow effect on hover */
-.show-dashboard-btn button:hover::before {
-  opacity: 0.7;
-  filter: blur(25px);
-  width: 100%;
-  height: 100%;
-}
-
-.show-dashboard-btn button:active {
-  transform: translateY(-1px); /* Slight push on active */
-  box-shadow: 
-    0 5px 15px rgba(126, 34, 206, 0.4),
-    0 2px 4px rgba(0, 0, 0, 0.1); /* Slight shadow adjustment on active */
-}
-
-.show-dashboard-btn button:disabled {
-  background: var(--color-primary);
-  cursor: not-allowed;
-}
-
-
-
-/* Enhanced Video Dashboard Styles */
-.video-dashboard {
-  padding: var(--spacing-xl);
-  margin-top: var(--spacing-xl);
-  background: rgba(15, 15, 37, 0.5);
-  border-radius: var(--border-radius-lg);
-  border: 1px solid rgba(126, 34, 206, 0.2);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  animation: fadeIn 0.5s ease-out;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.video-dashboard h2 {
-  color: var(--color-purple-lightest);
-  margin-bottom: var(--spacing-lg);
-  font-size: var(--font-size-xl);
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-}
-
-.video-dashboard h2::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, var(--color-purple-medium), transparent);
-  margin-left: var(--spacing-md);
-}
-
-.video-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: var(--spacing-lg);
-}
-
-.video-card {
-  background: rgba(15, 15, 37, 0.7);
-  border-radius: var(--border-radius-md);
-  overflow: hidden;
-  border: 1px solid rgba(126, 34, 206, 0.3);
-  transition: all var(--transition-normal);
-  cursor: pointer;
-  position: relative;
-}
-
-.video-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 10px 20px rgba(126, 34, 206, 0.2);
-  border-color: var(--color-purple-medium);
-}
-
-.video-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--color-purple-medium), var(--color-purple-light), var(--color-purple-medium));
-  opacity: 0;
-  transition: opacity var(--transition-normal);
-}
-
-.video-card:hover::before {
-  opacity: 1;
-}
-
-.video-thumbnail {
-  width: 100%;
-  aspect-ratio: 16/9;
-  object-fit: cover;
-  border-bottom: 1px solid rgba(126, 34, 206, 0.2);
-}
-
-.video-info {
-  padding: var(--spacing-md);
-}
-
-.video-title {
-  color: var(--color-white);
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-medium);
-  margin-bottom: var(--spacing-xs);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.error-notification {
-  margin: 15px 0;
-  width: 100%;
-  display: flex;
-  justify-content: center;
-}
-
-.error-message {
-  background-color: #ffebee;
-  color: #d32f2f;
-  padding: 12px 16px;
-  border-radius: 8px;
-  border-left: 4px solid #f44336;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-  max-width: 90%;
-  animation: fadeIn 0.3s ease-in-out;
-}
-
-.close-error {
-  background: none;
-  border: none;
-  color: #d32f2f;
-  font-size: 18px;
-  margin-left: 10px;
-  cursor: pointer;
-  padding: 0 5px;
-}
-
-.close-error:hover {
-  background-color: rgba(0, 0, 0, 0.05);
-  border-radius: 50%;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
+  .placeholder-content p {
+    font-size: 0.75rem; /* Reduced from 1rem */
+    line-height: 1.2;
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+
+  .no-video-placeholder {
+    min-height: 150px; /* Reduced from 200px */
+    padding: var(--spacing-md);
   }
-}
-.video-meta {
-  display: flex;
-  justify-content: space-between;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-xs);
-}
 
-.video-details {
-  padding: var(--spacing-xl) 0;
-  background: rgba(15, 15, 37, 0.7);
-  border-radius: var(--border-radius-lg);
-  margin-top: var(--spacing-xl);
-  border: 1px solid rgba(126, 34, 206, 0.2);
-}
+  /* Video Dashboard Mobile Adjustments */
+  .video-dashboard {
+    padding: 0.75rem;
+    margin-top: 1rem;
+  }
 
-.video-details-content {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 0 var(--spacing-lg);
-}
+  .video-dashboard h2 {
+    font-size: 1.25rem;
+    margin-bottom: 0.75rem;
+  }
 
-.video-details h3 {
-  color: var(--color-purple-lightest);
-  margin-bottom: var(--spacing-md);
-  font-size: var(--font-size-lg);
-}
-
-.video-details img {
-  max-width: 100%;
-  height: auto;
-  border-radius: var(--border-radius-md);
-  margin: var(--spacing-md) 0;
-  border: 1px solid rgba(126, 34, 206, 0.3);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.video-details-actions {
-  display: flex;
-  gap: var(--spacing-md);
-  margin-top: var(--spacing-lg);
-}
-
-.empty-state {
-  text-align: center;
-  padding: var(--spacing-xl);
-  color: var(--color-text-muted);
-}
-
-.empty-state-icon {
-  font-size: var(--font-size-3xl);
-  margin-bottom: var(--spacing-md);
-  color: var(--color-purple-medium);
-}
-
-/* Responsive Adjustments */
-@media (max-width: 768px) {
   .video-grid {
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: var(--spacing-md);
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
   }
-  
-  .video-details {
-    padding: var(--spacing-md) 0;
+
+  .video-card {
+    margin-bottom: 0.75rem;
   }
-  
-  .video-details-actions {
-    flex-direction: column;
+
+  .video-info {
+    padding: 0.5rem;
   }
-}
 
-
-
-/* Loading Animation Enhancements */
-@keyframes pulse-dot {
-  0%, 100% { 
-    transform: scale(0.9);
-    opacity: 0.7;
-    background-color: var(--color-purple-light);
+  .video-title {
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
   }
-  50% { 
-    transform: scale(1.1);
-    opacity: 1;
-    background-color: var(--color-purple-medium);
+
+  .video-meta {
+    font-size: 0.7rem;
   }
-}
 
-.loading-spinner {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
-.spinner-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: var(--border-radius-circle);
-  display: inline-block;
-  animation: pulse-dot 1.4s infinite ease-in-out;
-}
-
-.spinner-dot:nth-child(1) {
-  animation-delay: -0.32s;
-}
-
-.spinner-dot:nth-child(2) {
-  animation-delay: -0.16s;
-}
-
-.spinner-dot:nth-child(3) {
-  animation-delay: 0s;
-}
-
-/* Responsive Adjustments */
-@media (max-width: 768px) {
-  .clipper-wrapper {
-    padding: var(--spacing-md);
-  }
-  
+  /* Adjust main container spacing */
   .clipper-container {
-    padding: var(--spacing-md);
+    padding: 0.75rem;
+    margin-top: 15px;
   }
-  
+
   .app-title h1 {
-    font-size: var(--font-size-3xl);
+    font-size: 1.75rem;
   }
-  
+
+  /* Adjust video preview container */
+  .video-preview-container {
+    padding: 0.5rem;
+  }
+
+  .video-thumbnail {
+    max-height: 120px;
+  }
+
+  /* Settings container adjustments */
+  .settings-container {
+    padding: 0.75rem;
+  }
+
+  .features h3,
+  .optimization-type h3 {
+    font-size: 0.8rem;
+  }
+
   .feature-btn {
-    width: 80px;
-    height: 80px;
+    width: 60px;
+    height: 60px;
   }
-  
-  .optimization-buttons {
-    flex-direction: column;
+
+  .feature-icon {
+    width: 16px;
+    height: 16px;
   }
-}
 
-.action-buttons-container {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 20px;
-}
+  .feature-btn span {
+    font-size: 0.65rem;
+  }
 
-.generate-btn, .generate-report-btn, .show-dashboard-btn {
-  margin: 0 5px;
-}
+  /* Input field adjustments */
+  .url-input-container {
+    padding: 0.5rem;
+    margin-top: -1rem;
+  }
 
-.btn--secondary {
-  padding: 0.85rem 2.5rem;
-  background: linear-gradient(135deg, #27ae60, #2ecc71);
-  color: var(--color-white);
-  border: none;
-  border-radius: var(--border-radius-pill);
-  font-size: 1rem;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  cursor: pointer;
-  transition: all var(--transition-normal);
-  box-shadow: 
-    0 4px 15px rgba(46, 204, 113, 0.3),
-    0 2px 4px rgba(0, 0, 0, 0.1);
-  position: relative;
-  overflow: hidden;
-  z-index: 10;
-}
+  .url-input-container .input {
+    font-size: 0.8rem;
+    padding: 0.5rem;
+  }
 
-.btn--secondary::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 90%;
-  height: 90%;
-  transform: translate(-50%, -50%);
-  background: #2ecc71;
-  filter: blur(20px);
-  opacity: 0.5;
-  transition: all var(--transition-normal);
-  z-index: 0;
-}
-
-.btn--secondary:hover {
-  background: linear-gradient(135deg, #2ecc71, #27ae60);
-  transform: translateY(-3px) scale(1.02);
-  box-shadow: 
-    0 15px 30px rgba(46, 204, 113, 0.5),
-    0 4px 8px rgba(0, 0, 0, 0.1);
-}
-
-.btn--secondary:hover::before {
-  opacity: 0.7;
-  filter: blur(25px);
-  width: 100%;
-  height: 100%;
-}
-
-.btn--secondary:active {
-  transform: translateY(-1px);
-  box-shadow: 
-    0 5px 15px rgba(46, 204, 113, 0.4),
-    0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.btn--secondary:disabled {
-  background: #a5d6b7;
-  cursor: not-allowed;
+  /* Button adjustments */
+  .fetch-btn,
+  .generate-btn button,
+  .show-dashboard-btn button {
+    padding: 0.5rem 1.25rem;
+    font-size: 0.85rem;
+  }
 }
