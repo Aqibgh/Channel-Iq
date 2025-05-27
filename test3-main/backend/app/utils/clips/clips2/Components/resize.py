@@ -26,7 +26,7 @@ def resize_video(input_video_path):
         # Get crops using clipsai
         crops = clipsai.resize(
             video_file_path=input_video_path,
-            pyannote_auth_token="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",
+            pyannote_auth_token="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",
             aspect_ratio=(9, 16)
         )
         

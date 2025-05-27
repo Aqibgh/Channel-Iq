@@ -35,7 +35,7 @@ function ReportPage() {
       .split("\n")
       .map((line) => {
         // Convert bullet points to styled list items
-        if (line.trim().startsWith("•") || line.trim().startsWith("-") || line.trim().startsWith("*")) {
+        if (line.trim().startsWith("•") ||line.trim().startsWith("*")) {
           return `<li class="bullet-point">${line.trim().substring(1).trim()}</li>`;
         }
         // Keep paragraphs as they are
@@ -86,38 +86,16 @@ function ReportPage() {
 </header>
 
       <div className="main-content">
-        <button className="clipper-btn" onClick={() => navigate("/clipper")}>
-          Back to Clipper
-        </button>
-
+       
         <div className="report-container">
           <div className="page-header">
             <h1>Video Analysis Report</h1>
             <p>Detailed analysis and recommendations for your video</p>
           </div>
 
-          <div className="video-info-section">
-            <div className="video-thumbnail">
-              <img src={thumbnail} alt="Video Thumbnail" />
-            </div>
-            <div className="video-details">
-              <h2>{videoTitle}</h2>
-              <p className="video-url">
-                <a href={videoURL} target="_blank" rel="noopener noreferrer">
-                  {videoURL}
-                </a>
-              </p>
-            </div>
-          </div>
-
+         
           <div className="report-sections">
-            <div className="transcript-preview report-box">
-              <h3>Transcript Preview</h3>
-              <div className="transcript-content">
-                <p>{report.transcript_preview}</p>
-              </div>
-            </div>
-
+            
             <div className="full-analysis report-box">
               <h3>Full Analysis</h3>
               <div 
@@ -126,16 +104,7 @@ function ReportPage() {
               />
             </div>
 
-            <div className="key-suggestions report-box">
-              <h3>Key Actionable Suggestions</h3>
-              <ul className="suggestions-list">
-                {report.key_suggestions.map((suggestion, index) => (
-                  <li key={index} className="suggestion-item">
-                    {suggestion}
-                  </li>
-                ))}
-              </ul>
-            </div>
+           
           </div>
 
           <div className="action-buttons">

@@ -220,15 +220,23 @@ def generate_analysis_report(transcript, api_key):
             messages=[
                 {"role": "system", "content": "You're a professional video content analyst. Provide detailed feedback and suggestions."},
                 {"role": "user", "content": f"""
-Analyze this video transcript and provide a detailed report with these sections:
-1. CONTENT SUMMARY (1 paragraph)
-2. KEY STRENGTHS (3 bullet points)
-3. WEAKNESSES/ISSUES (3 bullet points)
-4. TECHNICAL IMPROVEMENTS (audio, video quality, pacing)
-5. CONTENT IMPROVEMENTS (structure, engagement, storytelling)
-6. SEO OPTIMIZATION (title suggestions, tags, description)
-7. ACTIONABLE RECOMMENDATIONS (specific steps to improve)
+analyze this video transcript. Keep each section brief and format with HTML:
 
+<div style="color: #9333ea; font-weight: bold;">SUMMARY</div>
+<div style="color: white;">(2-3 sentences max)</div>
+
+<div style="color: #9333ea; font-weight: bold;">TOP 3 STRENGTHS</div>
+<div style="color: white;">(1 line each, numbered 1. 2. 3.)</div>
+
+<div style="color: #9333ea; font-weight: bold;">TOP 3 ISSUES</div>
+<div style="color: white;">(1 line each, numbered 1. 2. 3.)</div>
+
+<div style="color: #9333ea; font-weight: bold;">QUICK FIXES</div>
+<div style="color: white;">(3 actionable items, numbered 1. 2. 3.)</div>
+
+<div style="color: #9333ea; font-weight: bold;">SEO BOOST</div>
+<div style="color: white;">(Best title + 3 key tags)</div>
+                 
 Transcript:
 {transcript[:15000]}  # Limit to 15k chars
 """}
@@ -245,7 +253,6 @@ Transcript:
             'status': 'success',
             'transcript': transcript[:1000] + "..." if len(transcript) > 1000 else transcript,
             'full_analysis': analysis,
-            'key_suggestions': suggestions
         }
         
     except Exception as e:

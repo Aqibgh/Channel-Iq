@@ -69,6 +69,7 @@ RUN pip install --no-cache-dir numpy && \
     pip install --no-cache-dir -r /tmp/requirement.txt && \
     pip install --no-cache-dir yt-dlp gunicorn[gthread]
 RUN pip install -U yt-dlp
+
 # Clean up build dependencies and cache (optimized for 8GB RAM)
 RUN apt-get remove -y \
     build-essential \
@@ -92,7 +93,10 @@ RUN apt-get remove -y \
 RUN useradd -m -u 1000 -s /bin/bash appuser && \
     # Create app directories with proper permissions
     mkdir -p /app/{logs,media,staticfiles,data,tmp} && \
-    chown -R appuser:appuser /app
+    chown -R appuser:appuser /app && \
+    # Set proper permissions for clipsai media directory for appuser
+    chown -R appuser:appuser /opt/venv/lib/python3.11/site-packages/clipsai/media && \
+    chmod -R 755 /opt/venv/lib/python3.11/site-packages/clipsai/media
 
 # Set working directory
 WORKDIR /app
@@ -117,7 +121,7 @@ HEALTHCHECK --interval=45s --timeout=20s --start-period=90s --retries=3 \
 
 # Expose port
 EXPOSE 8000
-
+RUN chmod -R 755 /opt/venv/lib/python3.11/site-packages/clipsai/media || true
 # Optimized gunicorn configuration for 8GB RAM / 4 CPU setup
 CMD ["gunicorn", \
      "--bind", "0.0.0.0:8000", \
@@ -128,7 +132,7 @@ CMD ["gunicorn", \
      "--max-requests", "2000", \
      "--max-requests-jitter", "200", \
      "--timeout", "3000", \
-     "--graceful-timeout", "30", \
+     "--graceful-timeout", "3000", \
      "--keep-alive", "10", \
      "--preload", \
      "--worker-tmp-dir", "/dev/shm", \

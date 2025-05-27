@@ -5,6 +5,7 @@ import googleapiclient.discovery
 from datetime import datetime, timedelta
 from django.contrib.auth.models import AbstractUser
 from django.utils.translation import gettext_lazy as _
+
 # Create your models here.
 class React(models.Model):
     employee=models.CharField(max_length=30)
@@ -16,6 +17,7 @@ class ClipGenerationTask(models.Model):
     clip_count = models.IntegerField()
     status = models.CharField(max_length=20, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
+
 class YouTubeAuth(models.Model):
     """Model to store YouTube OAuth credentials"""
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
@@ -60,6 +62,7 @@ class YouTubeAuth(models.Model):
             
         except Exception:
             return False
+
 class CustomUser(AbstractUser):
     """
     Custom User model that extends Django's AbstractUser to include
@@ -95,6 +98,15 @@ class CustomUser(AbstractUser):
         null=True,
         unique=True,
         help_text=_('Unique identifier from Firebase authentication')
+    )
+    
+    # Add the missing 'sub' field (subject identifier from JWT/OAuth)
+    sub = models.CharField(
+        _('Subject Identifier'),
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text=_('Subject identifier from JWT token or OAuth provider')
     )
     
     profile_picture = models.URLField(

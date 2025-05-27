@@ -115,7 +115,7 @@ class EnhancedYouTubeSEOGenerator:
             audio.export(wav_file, format="wav")
 
             # Load Whisper model - using larger model for better accuracy
-            model = WhisperModel("medium", device="cuda" if torch.cuda.is_available() else "cpu")
+            model = WhisperModel("base", device="cuda" if torch.cuda.is_available() else "cpu")
             
             # Transcribe with improved settings and get word timestamps
             segments, _ = model.transcribe(wav_file, beam_size=5, vad_filter=True)
@@ -170,7 +170,7 @@ class EnhancedYouTubeSEOGenerator:
             wav_file = audio_file + ".wav"
             audio.export(wav_file, format="wav")
 
-            model = WhisperModel("medium", device="cuda" if torch.cuda.is_available() else "cpu")
+            model = WhisperModel("base", device="cuda" if torch.cuda.is_available() else "cpu")
             segments, _ = model.transcribe(wav_file, beam_size=5, vad_filter=True)
 
             transcript_text = " ".join([segment.text for segment in segments])
