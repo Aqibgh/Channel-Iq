@@ -193,17 +193,14 @@ const HomePage = () => {
 
         {/* CTA Button */}
         <div className="cta" ref={buttonRef}>
-          <button className="cta__button" onClick={scrollToClipper}>
+          <button className="cta__button" onClick={() => navigate('/clipper')}>
             Get Started
           </button>
           <div className="cta__glow"></div>
         </div>
       </div>
 
-      {/* Clipper Section */}
-      <div className="clipper-section">
-        <Clipper />
-      </div>
+      
     </div>
   );
 };

@@ -636,33 +636,45 @@ try {
 
       return (
         <>
-          {/* Navbar - Only visible when explicitly navigating to clipper */}
-          {window.location.pathname !== "/home" && (
-            <header className="header">
-              <div className="header__logo" onClick={() => navigate("/home")}>
-                Channel<span className="header__logo-highlight">IQ</span>
-              </div>
-      
-              {loadingUser ? (
-                <p className="loading-text">Loading user...</p>
-              ) : user ? (
-                <div className="user">
-                  {user.picture && (
-                    <img src={user.picture} alt="User" className="user__avatar" />
-                  )}
-                  <span className="user__name">{user.name}</span>
-                  <button className="user__logout-btn" onClick={logout}>
-                    Logout
-                  </button>
+          {/* Header */}
+          <header className="dashboard-header">
+            <div className="logo-container" onClick={() => navigate("/")}>
+              <h1 className="logo">
+                <span className="logo-bold">Channel-</span>
+                <span className="logo-highlight">IQ</span>
+              </h1>
+            </div>
+
+            <div className="header-right">
+              <a 
+                className="nav-link" 
+                href="/terms"
+                style={{ marginRight: '1rem', textDecoration: 'none', color: 'var(--color-text)', fontWeight: 500 }}
+              >
+                Terms & Services
+              </a>
+              <a 
+                className="nav-link" 
+                href="/videos"
+                style={{ marginRight: '1rem', textDecoration: 'none', color: 'var(--color-text)', fontWeight: 500 }}
+              >
+                Videos
+              </a>
+
+              {user ? (
+                <div className="user-profile">
+                  <img src={user.picture} alt="User" className="user-avatar" />
+                  <span className="username">{user.name}</span>
+                  <button className="logout-button" onClick={logout}>Logout</button>
                 </div>
               ) : (
-                <button className="user__login-btn" onClick={() => navigate("/login")}>
+                <button className="login-button" onClick={() => navigate("/login")}>
                   Login
                 </button>
               )}
-            </header>
-          )}
-      
+            </div>
+          </header>
+
           <div className="clipper-wrapper">
             <div className="clipper-container">
               {/* Title */}
@@ -831,17 +843,7 @@ try {
   <div className="button-container">
     
 
-    <button
-      onClick={handleGenerateClick}
-      disabled={processing || !videoData || generatingReport}
-      className="btn btn--primary generate-btn"
-    >
-      {processing ? (
-        <span className="loading-text">Processing...</span>
-      ) : (
-        "Generate"
-      )}
-    </button>
+    
 
     <button
       onClick={handleGenerateReport}
@@ -852,6 +854,17 @@ try {
         <span className="loading-text">Analyzing...</span>
       ) : (
         "Get Report"
+      )}
+    </button>
+    <button
+      onClick={handleGenerateClick}
+      disabled={processing || !videoData || generatingReport}
+      className="btn btn--primary generate-btn"
+    >
+      {processing ? (
+        <span className="loading-text">Processing...</span>
+      ) : (
+        "Generate"
       )}
     </button>
 
