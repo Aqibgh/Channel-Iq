@@ -18,6 +18,8 @@ function ClipPreview() {
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState('clips');
     
+    console.log("[DEBUG] ClipPreview mounted. location.state:", location.state);
+
     // Function to save clip details to Firebase
     const saveClipDataToFirebase = async (clipPath, features, videoTitle) => {
         if (!user) {
@@ -125,7 +127,6 @@ function ClipPreview() {
     
         try {
             const videoTitle = location.state?.videoTitle || "Untitled Video";
-    
             const isSEOIncluded = selectedFeatures.includes("SEO");
             const response = await apiClient.post('/optimize_shortform/', {
                 clipPath: selectedClip.url,
@@ -135,45 +136,55 @@ function ClipPreview() {
                 userEmail: user?.email,
                 timestamp: serverTimestamp(),
             });
-    
-            if (response.ok) {
-                const result = await response.json();
-                
-                // Check if there was a language detection error for captions
-                if (result.results.captions && result.results.captions.status === "language_error") {
-                    // Show alert about language limitation and stop processing
-                    alert(`${result.results.captions.message} Processing cannot continue.`);
-                    return; // Exit the function early
-                }
+            console.log("[DEBUG] Full Axios response:", response);
+            if (response.status === 200) {
+                const result = response.data;
+                console.log("[DEBUG] API result:", result);
                 await saveClipDataToFirebase(selectedClip, selectedFeatures, videoTitle);
-    
                 if (isSEOIncluded) {
-                    navigate("/seo_shortform", { 
-                        state: { 
-                            message: result.message, 
-                            results: result.results, 
-                            selectedFeatures, 
+                    console.log("[DEBUG] Navigating to /seo_shortform with state:", {
+                        message: result.message,
+                        results: result.results,
+                        selectedFeatures,
+                        selectedClip,
+                        videoTitle
+                    });
+                    navigate("/seo_shortform", {
+                        state: {
+                            message: result.message,
+                            results: result.results,
+                            selectedFeatures,
                             selectedClip,
                             videoTitle
-                        } 
+                        }
                     });
+                    console.log("[DEBUG] Navigation to /seo_shortform triggered");
                 } else {
-                    navigate("/optimizevideo_shortform", { 
-                        state: { 
-                            message: result.message, 
-                            results: result.results, 
-                            selectedFeatures, 
+                    console.log("[DEBUG] Navigating to /optimizevideo_shortform with state:", {
+                        message: result.message,
+                        results: result.results,
+                        selectedFeatures,
+                        selectedClip,
+                        videoTitle
+                    });
+                    navigate("/optimizevideo_shortform", {
+                        state: {
+                            message: result.message,
+                            results: result.results,
+                            selectedFeatures,
                             selectedClip,
                             videoTitle
-                        } 
+                        }
                     });
+                    console.log("[DEBUG] Navigation to /optimizevideo_shortform triggered");
                 }
             } else {
                 alert("An error occurred during optimization. Please try again.");
+                console.error("[DEBUG] Non-200 response:", response);
             }
         } catch (error) {
-            console.error("Error during optimization:", error);
-            alert("An error occurred. Please check your connection and try again.");
+            alert("An error occurred. Please check your connection and try again.\n" + (error?.message || error));
+            console.error("[DEBUG] Error during optimization:", error);
         } finally {
             setLoading(false);
         }

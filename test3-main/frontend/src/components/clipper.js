@@ -497,13 +497,19 @@ try {
                       // Continue with navigation even if Firestore fails
                   }
                   
-                  navigate("/clippreview", {
-                      state: {
-                          clipPaths: response.data.clips,
-                          videoURL,
-                          videoTitle: videoData.title,
-                      },
-                  });
+                  console.log("[DEBUG] Navigating to /clippreview with state:", {
+                    clipPaths: response.data.clips,
+                    videoURL,
+                    videoTitle: videoData.title,
+                });
+                navigate("/clippreview", {
+                    state: {
+                        clipPaths: response.data.clips,
+                        videoURL,
+                        videoTitle: videoData.title,
+                    },
+                });
+                console.log("[DEBUG] Navigation to /clippreview triggered");
               } catch (shortFormError) {
                   console.error("❌ Short Form API Error:", shortFormError);
                   
