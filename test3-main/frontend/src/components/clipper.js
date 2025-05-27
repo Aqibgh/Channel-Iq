@@ -497,19 +497,13 @@ try {
                       // Continue with navigation even if Firestore fails
                   }
                   
-                  console.log("[DEBUG] Navigating to /clippreview with state:", {
-                    clipPaths: response.data.clips,
-                    videoURL,
-                    videoTitle: videoData.title,
-                });
-                navigate("/clippreview", {
-                    state: {
-                        clipPaths: response.data.clips,
-                        videoURL,
-                        videoTitle: videoData.title,
-                    },
-                });
-                console.log("[DEBUG] Navigation to /clippreview triggered");
+                  navigate("/clippreview", {
+                      state: {
+                          clipPaths: response.data.clips,
+                          videoURL,
+                          videoTitle: videoData.title,
+                      },
+                  });
               } catch (shortFormError) {
                   console.error("❌ Short Form API Error:", shortFormError);
                   
@@ -627,8 +621,8 @@ try {
           <div className="success-modal-overlay">
             <div className="success-modal">
               <div className="success-icon">✅</div>
-              <h3>Video Processing Complete!</h3>
-              <p>Your video has been successfully fetched and saved to the cloud.</p>
+              <h3>You're good to go</h3>
+              <p>Your video is saved to the cloud.</p>
               <button 
                 className="modal-close-btn"
                 onClick={() => setShowSuccessModal(false)}
@@ -683,7 +677,7 @@ try {
               <div className="url-input-container">
   <input
     type="text"
-    placeholder="https://www.youtube.com/watch?v=jNQXAC9IVRw"
+    placeholder="Enter YouTube Video URL"
     value={videoURL}
     onChange={(e) => setVideoURL(e.target.value)}
     className="input"
@@ -723,8 +717,8 @@ try {
                     <div className="processing-spinner">
                       <div className="spinner-ring"></div>
                     </div>
-                    <h3>Processing Your Video</h3>
-                    <p>Please wait while we fetch and save your video to the cloud...</p>
+                    <h3>Processing...</h3>
+                    <p>Saving your video to the cloud ⏳</p>
                   </div>
                 </div>
               )}
@@ -834,41 +828,41 @@ try {
                         </div>
                       </div>
       
-                      {/* Action Buttons Container */}
-                      <div className="action-buttons-container">
-                        <div className="button-container">
-                          <button
-                            onClick={handleGenerateClick}
-                            disabled={processing || !videoData}
-                            className="btn btn--primary generate-btn"
-                          >
-                            {processing ? (
-                              <span className="loading-text">Processing...</span>
-                            ) : (
-                              "Generate"
-                            )}
-                          </button>
+<div className="action-buttons-container">
+  <div className="button-container">
+    
 
-                          <button
-                            onClick={handleGenerateReport}
-                            disabled={generatingReport || !videoData}
-                            className="btn btn--secondary generate-report-btn"
-                          >
-                            {generatingReport ? (
-                              <span className="loading-text">Analyzing...</span>
-                            ) : (
-                              "Generate Report"
-                            )}
-                          </button>
+    <button
+      onClick={handleGenerateReport}
+      disabled={generatingReport || !videoData}
+      className="btn btn--secondary generate-report-btn"
+    >
+      {generatingReport ? (
+        <span className="loading-text">Analyzing...</span>
+      ) : (
+        "Get Report"
+      )}
+    </button>
+    <button
+      onClick={handleGenerateClick}
+      disabled={processing || !videoData}
+      className="btn btn--primary generate-btn"
+    >
+      {processing ? (
+        <span className="loading-text">Processing...</span>
+      ) : (
+        "Generate"
+      )}
+    </button>
 
-                          <button
-                            onClick={() => setShowDashboard(!showDashboard)}
-                            className="btn btn--outline show-dashboard-btn"
-                          >
-                            {showDashboard ? "Hide Videos" : "Show Videos"}
-                          </button>
-                        </div>
-                      </div>
+    <button
+      onClick={() => setShowDashboard(!showDashboard)}
+      className="btn btn--outline show-dashboard-btn"
+    >
+      {showDashboard ? "Hide Videos" : "Show Videos"}
+    </button>
+  </div>
+</div>
                     </div>
                   ) : (
                     /* Placeholder when no video is loaded */

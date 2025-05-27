@@ -80,21 +80,7 @@
   color: #e2e8f0;
 }
 
-.logout-button {
-  background-color: transparent;
-  color: #8f3af5;
-  border: none;
-  font-size: 0.875rem;
-  cursor: pointer;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.25rem;
-  transition: all 0.2s ease;
-}
 
-.logout-button:hover {
-  background-color: rgba(143, 58, 245, 0.2);
-  color: #a35ef7;
-}
 
 .login-button {
   background-color: #8f3af5;

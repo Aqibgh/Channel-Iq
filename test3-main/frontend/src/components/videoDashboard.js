@@ -119,11 +119,7 @@ const VideoDashboard = () => {
                                 className="video-thumbnail"
                             />
                             <p className="video-title">{video.title}</p>
-                            {video.timestamp && (
-                                <p className="video-date">
-                                    {new Date(video.timestamp.seconds * 1000).toLocaleDateString()}
-                                </p>
-                            )}
+                            
                         </div>
                     ))}
                 </div>

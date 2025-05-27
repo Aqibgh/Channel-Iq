@@ -63,12 +63,12 @@ body {
   color: var(--color-text);
   margin: 0;
   padding: 0;
-  overflow-y: fixed;  /* Enable vertical scrolling */
+  overflow-y: relative;  /* Enable vertical scrolling */
 
 }
 body.scroll-lock {
-  overflow: fixed;
-  position: fixed;
+  overflow: relative;
+  position: relative;
   width: 100%;
   height: 100%;
 }
@@ -79,7 +79,7 @@ body.scroll-lock {
   display: flex;
   flex-direction: column;
   position: relative;
-  overflow: hidden;
+  overflow: relative;
 }
 
 .dashboard-header {
