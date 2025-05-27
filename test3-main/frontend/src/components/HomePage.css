@@ -285,7 +285,7 @@ body.scroll-lock {
 .features-section {
   padding: var(--spacing-2xl) 5%;
   position: relative;
-  overflow: hidden;
+  overflow: relative;
 }
 
 .features-container {
