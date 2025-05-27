@@ -94,11 +94,13 @@ function ClipPreview() {
                         key: clip
                     };
                 }
-            });
-    
-            setProcessedClips(clips);
+            });            setProcessedClips(clips);
+            // Automatically select the first clip if clips are available
+            if (clips.length > 0 && !selectedClip) {
+                setSelectedClip(clips[0]);
+            }
         }
-    }, [clipPaths]);
+    }, [clipPaths, selectedClip]);
 
     const handleClipSelection = (clip) => {
         setSelectedClip(selectedClip === clip ? null : clip);

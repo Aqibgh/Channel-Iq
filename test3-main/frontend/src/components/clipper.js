@@ -247,12 +247,12 @@ try {
         } catch (resError) {
           console.warn("Resolution Check Warning:", resError);
           // Non-critical failure - just log
-        }
-    
-        // Success case
+        }        // Success case - set default optimization type to Long Form
         setShowSuccessModal(true);
         setVideoData(data);
-    
+        setOptimizationType("Long Form");
+        setAspectRatio("16:9"); // Since Long Form uses 16:9 aspect ratio
+
       } catch (unexpectedError) {
         console.error("Unexpected Error:", unexpectedError);
         setError("❌ An unexpected error occurred. Please try again.");
