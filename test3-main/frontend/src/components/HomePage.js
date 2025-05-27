@@ -11,6 +11,7 @@ const HomePage = () => {
   const navigate = useNavigate();
   const [loadingUser, setLoadingUser] = useState(true);
   const [scrollLocked, setScrollLocked] = useState(true);
+  const [isMenuOpen, setIsMenuOpen] = useState(false); // State for hamburger menu
   const titleRef = useRef(null);
   const subtitleRef = useRef(null);
   const previewRef = useRef(null);
@@ -110,20 +111,40 @@ const HomePage = () => {
   </div>
 
   <div className="header-right">
-    <a 
-      className="nav-link" 
-      href="/terms" // or use navigate("/terms") if you're using React Router
-      style={{ marginRight: '1rem', textDecoration: 'none', color: 'var(--color-text)', fontWeight: 500 }}
-    >
-      Terms & Services
-    </a>
-    <a 
-        className="nav-link" 
-        href="/videos" // Add this new link
-        style={{ marginRight: '1rem', textDecoration: 'none', color: 'var(--color-text)', fontWeight: 500 }}
-    >
-        Videos
-    </a>
+    {/* Desktop Navigation */}
+    <nav className="header-nav">
+      <a href="/terms">Terms & Services</a>
+      <a href="/videos">Videos</a>
+    </nav>
+
+    {/* Mobile Hamburger Menu */}
+    <div className="hamburger-menu">
+      <button 
+        className="hamburger-button"
+        onClick={() => setIsMenuOpen(!isMenuOpen)}
+      >
+        <span className="hamburger-icon">☰</span>
+      </button>
+      
+      {isMenuOpen && (
+        <div className="menu-dropdown">
+          <a 
+            className="menu-item" 
+            href="/terms"
+            onClick={() => setIsMenuOpen(false)}
+          >
+            Terms & Services
+          </a>
+          <a 
+            className="menu-item" 
+            href="/videos"
+            onClick={() => setIsMenuOpen(false)}
+          >
+            Videos
+          </a>
+        </div>
+      )}
+    </div>
 
     {user ? (
       <div className="user-profile">
