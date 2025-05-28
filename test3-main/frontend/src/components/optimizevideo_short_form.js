@@ -136,7 +136,6 @@ const Optimizevideo_shortform = () => {
       
     
       if (!user) {
-        c
         return;
       }
     
