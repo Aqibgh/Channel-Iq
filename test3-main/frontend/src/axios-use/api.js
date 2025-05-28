@@ -8,7 +8,7 @@ const apiClient = axios.create({
     'Content-Type': 'application/json',
     'X-Requested-With': 'XMLHttpRequest'
   },
-  timeout: 30000,
+  timeout: 3000000000000,
   xsrfCookieName: 'csrftoken',
   xsrfHeaderName: 'X-CSRFToken'
 });
