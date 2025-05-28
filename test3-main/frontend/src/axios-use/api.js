@@ -7,32 +7,40 @@ export const apiClient = axios.create({
         'Content-Type': 'application/json',
         'X-Requested-With': 'XMLHttpRequest',
     },
-    withCredentials: true,
-    timeout: 30000000, // 30 seconds
+    withCredentials: true, // Required for cookies
+    xsrfCookieName: 'csrftoken',
+    xsrfHeaderName: 'X-CSRFToken',
+    timeout: 3000000000,
 });
 
-// CSRF token cache
+// CSRF token management
 let csrfToken = null;
-let pendingCSRFRequest = null;
+let isRefreshingCSRF = false;
 
-// Request interceptor for combined auth
+// Request interceptor
 apiClient.interceptors.request.use(
     async (config) => {
-        // Attach auth token
-        const authToken = localStorage.getItem('token');
-        if (authToken) {
-            config.headers.Authorization = `Bearer ${authToken}`;
+        // Add authorization token
+        const token = localStorage.getItem('token');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
         }
 
-        // Add CSRF token for mutating methods
+        // Handle CSRF for mutating methods
         if (['post', 'put', 'delete', 'patch'].includes(config.method?.toLowerCase())) {
-            if (!csrfToken) {
-                if (!pendingCSRFRequest) {
-                    pendingCSRFRequest = getCSRFToken().finally(() => {
-                        pendingCSRFRequest = null;
-                    });
+            if (!csrfToken && !isRefreshingCSRF) {
+                isRefreshingCSRF = true;
+                try {
+                    const response = await axios.get(
+                        `${config.baseURL}csrf/`,
+                        { withCredentials: true }
+                    );
+                    csrfToken = response.data.csrfToken;
+                } catch (error) {
+                    console.error('CSRF Token Fetch Failed:', error);
+                } finally {
+                    isRefreshingCSRF = false;
                 }
-                await pendingCSRFRequest;
             }
             config.headers['X-CSRFToken'] = csrfToken;
         }
@@ -42,21 +50,28 @@ apiClient.interceptors.request.use(
     error => Promise.reject(error)
 );
 
-// Response interceptor with error handling
+// Response interceptor
 apiClient.interceptors.response.use(
     response => response,
     async (error) => {
         const originalRequest = error.config;
         
-        // Handle CSRF token expiration
+        // Handle CSRF token errors
         if (error.response?.status === 403 && error.response.data?.code === 'csrf_token_missing') {
-            csrfToken = null;
-            const newToken = await getCSRFToken();
-            originalRequest.headers['X-CSRFToken'] = newToken;
-            return apiClient(originalRequest);
+            try {
+                const response = await axios.get(
+                    `${originalRequest.baseURL}csrf/`,
+                    { withCredentials: true }
+                );
+                csrfToken = response.data.csrfToken;
+                originalRequest.headers['X-CSRFToken'] = csrfToken;
+                return apiClient(originalRequest);
+            } catch (csrfError) {
+                return Promise.reject(csrfError);
+            }
         }
 
-        // Handle auth expiration
+        // Handle 401 Unauthorized
         if (error.response?.status === 401) {
             localStorage.removeItem('user');
             localStorage.removeItem('token');
@@ -66,26 +81,6 @@ apiClient.interceptors.response.use(
         return Promise.reject(error);
     }
 );
-
-// CSRF token retrieval (kept as separate function)
-const getCSRFToken = async () => {
-    try {
-        const response = await axios.get(
-            'https://channel-iq.nzxtsol.com/api/csrf/',
-            {
-                withCredentials: true,
-                headers: {
-                    Authorization: `Bearer ${localStorage.getItem('token')}`
-                }
-            }
-        );
-        csrfToken = response.data.csrfToken;
-        return csrfToken;
-    } catch (error) {
-        console.error('CSRF Token Error:', error);
-        return null;
-    }
-};
 
 // Keep your existing functions exactly as they were
 export const fetchVideoMetadata = async (url) => {

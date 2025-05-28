@@ -105,7 +105,7 @@ CSRF_COOKIE_SAMESITE = 'None' # Required for cross-site cookies
 # Additional CORS settings
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = False # Only allow all origins in debug mode
-
+CORS_EXPOSE_HEADERS = ['Set-Cookie']
 # CORS headers
 CORS_ALLOW_HEADERS = [
     'accept',
