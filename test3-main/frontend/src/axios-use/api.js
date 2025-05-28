@@ -1,133 +1,119 @@
 import axios from 'axios';
 
-// Create an Axios instance with default settings
+// Create Axios instance with combined auth
 export const apiClient = axios.create({
     baseURL: 'https://channel-iq.nzxtsol.com/api/',
     headers: {
         'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
     },
-    withCredentials: true, // Enable credentials for token-based auth
-    timeout: 300000000, // 30 second timeout
+    withCredentials: true,
+    timeout: 30000000, // 30 seconds
 });
 
-// Add request interceptor to include auth token and CSRF token
+// CSRF token cache
+let csrfToken = null;
+let pendingCSRFRequest = null;
+
+// Request interceptor for combined auth
 apiClient.interceptors.request.use(
     async (config) => {
-        // Add authentication token
-        const token = localStorage.getItem('token');
-        if (token) {
-            config.headers['Authorization'] = `Bearer ${token}`;
+        // Attach auth token
+        const authToken = localStorage.getItem('token');
+        if (authToken) {
+            config.headers.Authorization = `Bearer ${authToken}`;
         }
 
-        // Add CSRF token for POST, PUT, DELETE requests
+        // Add CSRF token for mutating methods
         if (['post', 'put', 'delete', 'patch'].includes(config.method?.toLowerCase())) {
-            const csrfToken = await getCSRFToken();
-            if (csrfToken) {
-                config.headers['X-CSRFToken'] = csrfToken;
+            if (!csrfToken) {
+                if (!pendingCSRFRequest) {
+                    pendingCSRFRequest = getCSRFToken().finally(() => {
+                        pendingCSRFRequest = null;
+                    });
+                }
+                await pendingCSRFRequest;
             }
+            config.headers['X-CSRFToken'] = csrfToken;
         }
 
         return config;
     },
-    (error) => {
-        return Promise.reject(error);
-    }
+    error => Promise.reject(error)
 );
 
-// Add response interceptor for better error handling
+// Response interceptor with error handling
 apiClient.interceptors.response.use(
-    (response) => {
-        return response;
-    },
+    response => response,
     async (error) => {
-        // Handle different types of errors
-        if (error.response) {
-            // Server responded with error status
-            console.error('API Response Error:', error.response.status, error.response.data);
-            
-            // Handle 401 Unauthorized errors
-            if (error.response.status === 401) {
-                // Clear local storage and redirect to login
-                localStorage.removeItem('user');
-                localStorage.removeItem('token');
-                window.location.href = '/login';
-            }
-        } else if (error.request) {
-            // Request was made but no response received
-            console.error('API Request Error:', error.request);
-        } else {
-            // Something else happened
-            console.error('API Error:', error.message);
+        const originalRequest = error.config;
+        
+        // Handle CSRF token expiration
+        if (error.response?.status === 403 && error.response.data?.code === 'csrf_token_missing') {
+            csrfToken = null;
+            const newToken = await getCSRFToken();
+            originalRequest.headers['X-CSRFToken'] = newToken;
+            return apiClient(originalRequest);
         }
+
+        // Handle auth expiration
+        if (error.response?.status === 401) {
+            localStorage.removeItem('user');
+            localStorage.removeItem('token');
+            window.location.href = '/login';
+        }
+
         return Promise.reject(error);
     }
 );
 
-// Function to get CSRF token
+// CSRF token retrieval (kept as separate function)
 const getCSRFToken = async () => {
     try {
-        const response = await axios.get('https://channel-iq.nzxtsol.com/api/csrf/', { 
-            withCredentials: true,
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+        const response = await axios.get(
+            'https://channel-iq.nzxtsol.com/api/csrf/',
+            {
+                withCredentials: true,
+                headers: {
+                    Authorization: `Bearer ${localStorage.getItem('token')}`
+                }
             }
-        });
-        return response.data.csrfToken;
+        );
+        csrfToken = response.data.csrfToken;
+        return csrfToken;
     } catch (error) {
         console.error('CSRF Token Error:', error);
         return null;
     }
 };
 
-// Helper function to get cookie value
-const getCookie = (name) => {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
-};
-
-// Fetch video metadata
+// Keep your existing functions exactly as they were
 export const fetchVideoMetadata = async (url) => {
     if (!isValidYouTubeUrl(url)) {
         throw new Error("Invalid YouTube URL provided. Please enter a valid YouTube link.");
     }
 
     try {
-        const response = await apiClient.get('/fetch-video/', {
-            params: { url },
-        });
+        const response = await apiClient.get('/fetch-video/', { params: { url } });
         return response.data;
     } catch (error) {
         handleApiError(error, 'fetching video metadata');
     }
 };
 
-// Download and upload video to S3
 export const downloadAndUploadVideo = async (url) => {
     if (!isValidYouTubeUrl(url)) {
         throw new Error("Invalid YouTube URL provided. Please enter a valid YouTube link.");
     }
 
     try {
-        const response = await apiClient.get('/download-video/', {
-            params: { url },
-        });
+        const response = await apiClient.get('/download-video/', { params: { url } });
         return response.data;
     } catch (error) {
         throw error;
     }
 };
 
-// SEO processing function
 export const processVideoSEO = async (data) => {
     try {
         const response = await apiClient.post('/seo/', data);
@@ -137,12 +123,11 @@ export const processVideoSEO = async (data) => {
     }
 };
 
-// Helper function to validate YouTube URL
+// Keep the rest of your helper functions unchanged
 const isValidYouTubeUrl = (url) => {
     const regex = /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|embed\/|v\/|shorts\/)|youtu\.be\/)[\w-]{11}/;
     return regex.test(url);
 };
-
 // Centralized error handling
 const handleApiError = (error, action) => {
     if (error.response) {

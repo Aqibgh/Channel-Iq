@@ -27,7 +27,7 @@ else:
     ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'channel-iq.nzxtsol.com', 'www.channel-iq.nzxtsol.com']
 
 # Security Settings
-SECURE_SSL_REDIRECT = not DEBUG
+SECURE_SSL_REDIRECT = False
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
 SECURE_BROWSER_XSS_FILTER = True
@@ -36,7 +36,7 @@ X_FRAME_OPTIONS = 'DENY'
 SECURE_HSTS_SECONDS = 31536000  # 1 year
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
-
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 # Installed apps
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -104,7 +104,7 @@ CSRF_COOKIE_SECURE = True     # For HTTPS
 CSRF_COOKIE_SAMESITE = 'None' # Required for cross-site cookies
 # Additional CORS settings
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_ALL_ORIGINS = DEBUG  # Only allow all origins in debug mode
+CORS_ALLOW_ALL_ORIGINS = False # Only allow all origins in debug mode
 
 # CORS headers
 CORS_ALLOW_HEADERS = [
