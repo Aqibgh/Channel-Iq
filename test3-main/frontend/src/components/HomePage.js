@@ -36,7 +36,6 @@ const HomePage = () => {
         try {
           const userDoc = await getDoc(doc(db, "users", storedUser.uid));
           if (userDoc.exists()) {
-            console.log("User Data from Firestore:", userDoc.data());
             login(userDoc.data());
           }
         } catch (error) {

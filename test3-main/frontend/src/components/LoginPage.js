@@ -20,12 +20,10 @@ const LoginPage = () => {
 
   const handleGoogleLogin = async () => {
     try {
-      console.log("🔄 Starting Google login process...");
       
       // 🔹 Step 1: Sign in with Firebase
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
-      console.log("✅ Firebase popup completed");
   
       // 🔹 Step 2: Get Firebase ID Token with retry logic
       let idToken;
@@ -37,7 +35,6 @@ const LoginPage = () => {
           // Add a small delay to ensure token is ready
           await new Promise(resolve => setTimeout(resolve, 1000));
           idToken = await user.getIdToken(true);
-          console.log("✅ Got Firebase ID token:", idToken.substring(0, 20) + "...");
           break;
         } catch (tokenError) {
           console.error("❌ Token error:", tokenError);
@@ -54,32 +51,23 @@ const LoginPage = () => {
         }
       }
 
-      console.log("✅ Firebase Authentication Success:", {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName
-      });
+      
   
       // 🔹 Step 3: Send Firebase Token and User ID to Django Backend
-      console.log("🔄 Sending authentication request to backend...");
-      console.log("Request payload:", {
-        token: idToken.substring(0, 20) + "...",
-        userId: user.uid
-      });
+      
+      
   
       const authResponse = await apiClient.post('auth/google-login/', {
         token: idToken,
         userId: user.uid
       });
   
-      console.log("✅ Backend response:", authResponse.data);
   
       // Check if the response was successful
       if (!authResponse.data || !authResponse.data.access_token) {
         throw new Error("❌ Google login failed in Django Backend: Invalid response");
       }
   
-      console.log("✅ Django Backend Authentication Success");
   
       // 🔹 Step 4: Store JWT Tokens
       localStorage.setItem("access_token", authResponse.data.access_token);
@@ -123,7 +111,6 @@ const LoginPage = () => {
       };
   
       login(userData);
-      console.log("✅ User context updated");
   
       // 🔹 Step 8: Navigate to Home
       navigate("/home");

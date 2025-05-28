@@ -21,12 +21,10 @@ const Dashboard = () => {
     }
 
     const videosRef = collection(db, "users", user.uid, "videos");
-    console.log("🔍 Setting up Firestore listener for videos...");
 
     const unsubscribeVideos = onSnapshot(
       videosRef,
       (snapshot) => {
-        console.log("📢 Firestore update detected!");
         const fetchedVideos = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
@@ -59,7 +57,6 @@ const Dashboard = () => {
     const longFormRef = doc(db, "users", user.uid, "videos", selectedVideo, "generate", "LongForm");
     const shortFormRef = doc(db, "users", user.uid, "videos", selectedVideo, "generate", "ShortForm");
 
-    console.log(`📢 Listening for optimized videos of: ${selectedVideo}`);
 
     const unsubscribeLongForm = onSnapshot(
       longFormRef,

@@ -16,7 +16,6 @@ const OptimizeVideo = () => {
 
   useEffect(() => {
       // Debug the incoming data from previous page
-      console.log("📌 Received location state:", location.state);
       
       if (!location.state) {
         console.warn("⚠️ No location state received, nothing to process");
@@ -33,9 +32,7 @@ const OptimizeVideo = () => {
       } = location.state;
       
       // More debugging for the specific fields we're interested in
-      console.log("📌 Results object:", results);
-      console.log("📌 Selected Features:", selectedFeatures);
-      console.log("📌 Original Video Title:", videoTitle);
+    
       
       const userId = user?.uid;
       
@@ -49,7 +46,6 @@ const OptimizeVideo = () => {
         ? videoTitle.replace(/[^\w\s-]/gi, "").trim()
         : `video_${Date.now()}`;
       
-      console.log("📌 Sanitized Video Title:", sanitizedTitle);
       
       // Extract processing details
       const audioProcessing = results.audio_processing || {};
@@ -166,7 +162,6 @@ const OptimizeVideo = () => {
         status: emailNotification.status || "unknown"
       };
       
-      console.log("📌 Simplified data to be saved:", simplifiedData);
       
       // Firestore path and save
       const videoDocRef = doc(db, "users", userId, "videos", sanitizedTitle, "generate", "LongForm");
@@ -174,7 +169,6 @@ const OptimizeVideo = () => {
       setDoc(videoDocRef, {
         OptimizedVid: simplifiedData
       })
-        .then(() => console.log("✅ Video processing data saved successfully!"))
         .catch((error) => console.error("❌ Error saving video processing data:", error));
       
     }, [location.state, user]);

@@ -82,10 +82,7 @@ const VideoDetails = ({ onClose, videoTitle }) => {
         const longFormRef = doc(db, "users", user.uid, "videos", sanitizedTitle, "generate", "LongForm");
         const shortFormRef = doc(db, "users", user.uid, "videos", sanitizedTitle, "generate", "ShortForm");
 
-        console.log(`Fetching data for paths:
-          Base: ${baseRef.path}
-          Long Form: ${longFormRef.path}
-          Short Form: ${shortFormRef.path}`);
+        
 
         const [baseSnap, longSnap, shortSnap] = await Promise.all([
           getDoc(baseRef),
@@ -103,13 +100,13 @@ const VideoDetails = ({ onClose, videoTitle }) => {
             longForm: longSnap.exists() ? longSnap.data() : null,
             shortForm: shortSnap.exists() ? shortSnap.data() : null
           };
-          console.log("Retrieved video data:", videoData);
+          
           setVideo(videoData);
 
           // Extract generated clips from shortForm data if available
           if (videoData.shortForm && videoData.shortForm.clips && Array.isArray(videoData.shortForm.clips)) {
             setGeneratedClips(videoData.shortForm.clips);
-            console.log("Found generated clips:", videoData.shortForm.clips);
+            
           }
 
           // Set initial activeFormType based on available data

@@ -47,7 +47,7 @@ const LoginPage = () => {
   const handleGoogleLoginSuccess = async (response) => {
     try {
       const decodedUser = jwtDecode(response.credential); // Decode the token
-      console.log("Google Login Success:", decodedUser);
+      
       
       // Get authentication token from backend
       const authResponse = await apiClient.post('/auth/google-login/', {
@@ -80,7 +80,7 @@ const LoginPage = () => {
 
   // Handle Google Login Failure
   const handleGoogleLoginFailure = () => {
-    console.log("Google Login Failed");
+    
   };
 
   // Handle YouTube Authorization

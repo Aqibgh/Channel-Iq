@@ -18,12 +18,10 @@ function ClipPreview() {
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState('clips');
     
-    console.log("[DEBUG] ClipPreview mounted. location.state:", location.state);
 
     // Function to save clip details to Firebase
     const saveClipDataToFirebase = async (clipPath, features, videoTitle) => {
         if (!user) {
-            console.log("User not logged in. Cannot save clip data.");
             return;
         }
     
@@ -69,7 +67,6 @@ function ClipPreview() {
                 videoURL: videoURL,
             });
     
-            console.log("Clip details saved successfully!");
         } catch (error) {
             console.error("Error saving clip data:", error);
         }
@@ -138,19 +135,11 @@ function ClipPreview() {
                 userEmail: user?.email,
                 timestamp: serverTimestamp(),
             });
-            console.log("[DEBUG] Full Axios response:", response);
             if (response.status === 200) {
                 const result = response.data;
-                console.log("[DEBUG] API result:", result);
                 await saveClipDataToFirebase(selectedClip, selectedFeatures, videoTitle);
                 if (isSEOIncluded) {
-                    console.log("[DEBUG] Navigating to /seo_shortform with state:", {
-                        message: result.message,
-                        results: result.results,
-                        selectedFeatures,
-                        selectedClip,
-                        videoTitle
-                    });
+                    
                     navigate("/seo_shortform", {
                         state: {
                             message: result.message,
@@ -160,15 +149,8 @@ function ClipPreview() {
                             videoTitle
                         }
                     });
-                    console.log("[DEBUG] Navigation to /seo_shortform triggered");
                 } else {
-                    console.log("[DEBUG] Navigating to /optimizevideo_shortform with state:", {
-                        message: result.message,
-                        results: result.results,
-                        selectedFeatures,
-                        selectedClip,
-                        videoTitle
-                    });
+                    
                     navigate("/optimizevideo_shortform", {
                         state: {
                             message: result.message,
@@ -178,7 +160,6 @@ function ClipPreview() {
                             videoTitle
                         }
                     });
-                    console.log("[DEBUG] Navigation to /optimizevideo_shortform triggered");
                 }
             } else {
                 alert("An error occurred during optimization. Please try again.");

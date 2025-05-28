@@ -31,7 +31,6 @@ function Seo_shortform({ videoThumbnail }) {
 
   useEffect(() => {
       if (location.state) {
-        console.log("Received data from previous page:", location.state);
         if (location.state.videoTitle) {
           setVideoTitle(location.state.videoTitle);
         }
@@ -44,14 +43,12 @@ function Seo_shortform({ videoThumbnail }) {
       }
     }, [videoTitle]);
 
-  console.log("🚀 Video Title from Previous Page:", videoTitle || "No title found");
 
   // Check for YouTube authorization on component mount
   useEffect(() => {
     const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
     setAuthToken(token);
     if (results?.final_processed?.s3_url) {
-      console.log(results.final_processed.s3_url);
     }
     // Check if user has YouTube authorization
     if (token && user) {
@@ -77,7 +74,6 @@ function Seo_shortform({ videoThumbnail }) {
         timestamp: serverTimestamp(),
       };
       await setDoc(clipDocRef, { seo: seoData }, { merge: true });
-      console.log("✅ SEO Short Form details saved.");
     } catch (error) {
       console.error("🔥 Error saving SEO data:", error);
     }
@@ -94,20 +90,12 @@ const saveOptimizationDetails = async ({
     email_notification,
     final_processed
   }) => {
-    console.log("🔄 saveOptimizationDetails called from SEO component");
   
     if (!user) {
-      console.log("❌ User not logged in. Cannot save video details.");
       return;
     }
   
-    // ✅ Log incoming data
-    console.log("🛠 Incoming Data from SEO component:");
-    console.log("🎵 audio_processing:", audio_processing);
-    console.log("📧 email_notification:", email_notification);
-    console.log("🎞 final_processed:", final_processed);
-    console.log("🏷 videoTitle:", videoTitle);
-    console.log("🔗 status:", processedVideoURL);
+ 
   
     try {
       // Sanitize or generate title
@@ -143,7 +131,6 @@ const saveOptimizationDetails = async ({
       optimizedVidData.enhancementType = enhancementType;
       optimizedVidData.selectedFeatures = selectedFeatures;
   
-      console.log("📦 Final OptimizedVid object from SEO:", optimizedVidData);
   
       const dataToSave = {
         OptimizedVid: optimizedVidData,
@@ -153,9 +140,7 @@ const saveOptimizationDetails = async ({
   
       await setDoc(clipDocRef, dataToSave, { merge: true });
   
-      console.log("✅ Optimized video details saved successfully from SEO component!");
     } catch (error) {
-      console.error("🔥 Error saving optimized video details from SEO:", error);
     }
   };
 
@@ -228,7 +213,6 @@ const saveOptimizationDetails = async ({
   const checkYoutubeAuth = async (token) => {
     try {
       const response = await apiClient.get('/youtube/check-auth/');
-      console.log("YouTube Auth Data:", response.data);
       setHasYoutubeAuth(response.data.has_youtube_auth || false);
     } catch (error) {
       console.error("Error checking YouTube auth:", error);
@@ -392,7 +376,6 @@ const saveOptimizationDetails = async ({
         formData.append('s3_key', selectedClip.key);
       }
       
-      console.log("Uploading with token:", authToken);
       
       // Make the API request to upload the video
       const uploadResponse = await apiClient.post('/youtube/upload/', formData);

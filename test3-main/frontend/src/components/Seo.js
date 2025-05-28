@@ -16,15 +16,13 @@ function SEO({ videoThumbnail }) {
   const { videoTitle, message, results, videoURL, localVideoPath, selectedFeatures } = location.state || {};
   const isSeoOnly = selectedFeatures?.length === 1 && selectedFeatures?.includes("SEO");
   // ✅ Debugging Logs
-  console.log("🔍 Debug: location.state =>", location.state);
-  console.log(results);
+  
+  
 
   // ✅ Fix: Ensure `displayMedia` or `selectedClip` is received
   const displayMedia = location.state?.displayMedia || null; 
   const selectedClip = location.state?.selectedClip || null; 
 
-  console.log("🔍 Debug: displayMedia (Thumbnail/Clip) =>", displayMedia);
-  console.log("🔍 Debug: selectedClip (if available) =>", selectedClip);
 
   const [seoMessage, setSeoMessage] = useState(message || "No SEO data received.");
   const [displayVideo, setDisplayVideo] = useState(selectedClip || null);
@@ -89,7 +87,6 @@ function SEO({ videoThumbnail }) {
         formData.append('s3_key', results.s3_upload.key);
       }
       
-      console.log("Uploading with token:", authToken);
       
       // Make the API request to upload the video
       const uploadResponse = await apiClient.post('/youtube/upload/', formData);
@@ -193,7 +190,6 @@ function SEO({ videoThumbnail }) {
           keywords: formattedKeywords
         };
   
-        console.log("🔍 Debug: Saving SEO Data:", JSON.stringify(dataToSave.seo, null, 2));
       }
   
       // ✅ Step 4: Save video processing data inside OptimizedVideo if available
@@ -202,23 +198,23 @@ function SEO({ videoThumbnail }) {
       // Save audio processing data if available
       if (results.audio_processing) {
         optimizedVideoData.audio_processing = results.audio_processing;
-        console.log("🔍 Debug: Saving Audio Processing Data:", JSON.stringify(results.audio_processing, null, 2));
+        
       }
       
       // Add video upscaling data if available
       if (results.video_upscaling) {
         optimizedVideoData.video_upscaling = results.video_upscaling;
-        console.log("🔍 Debug: Saving Video Upscaling Data:", JSON.stringify(results.video_upscaling, null, 2));
+        
       }
   
       if (results.s3_upload) {
         optimizedVideoData.s3 = results.s3_upload;
-        console.log("🔍 Debug: Saving S3 Upload Data:", JSON.stringify(results.s3_upload, null, 2));
+        
       }
   
       if (results.email_notification) {
         optimizedVideoData.email_notification = results.email_notification;
-        console.log("🔍 Debug: Saving Email Notification Data:", JSON.stringify(results.email_notification, null, 2));
+        
       }
   
       if (Object.keys(optimizedVideoData).length > 0) {
@@ -228,16 +224,15 @@ function SEO({ videoThumbnail }) {
       // Save selected features
       if (selectedFeatures && selectedFeatures.length > 0) {
         dataToSave.selectedFeatures = selectedFeatures;
-        console.log("🔍 Debug: Saving Selected Features:", JSON.stringify(dataToSave.selectedFeatures, null, 2));
+        
       }
   
-      console.log("📂 Firestore Path:", longFormRef.path);
-      console.log("🔍 Debug: Saving Complete Data:", JSON.stringify(dataToSave, null, 2));
+      
   
       // ✅ Step 5: Save all data to Firestore
       await setDoc(longFormRef, dataToSave);
   
-      console.log("✅ All details successfully saved inside LongForm subcollection.");
+     
     } catch (error) {
       console.error("🔥 Error saving data:", error);
     }
@@ -284,7 +279,7 @@ function SEO({ videoThumbnail }) {
       });
       
       const data = response.data;
-      console.log("YouTube Auth Data:", data);
+      
       setHasYoutubeAuth(data.has_youtube_auth || false);
     } catch (error) {
       console.error("Error checking YouTube auth:", error);
@@ -294,39 +289,38 @@ function SEO({ videoThumbnail }) {
 
   useEffect(() => {
     const fetchMedia = async () => {
-      console.log("Results:", results);
-      console.log("selectedFeatures:", selectedFeatures);
+    
       try {
         // First check S3 uploaded versions (highest priority)
         if (results?.s3_upload?.url) {
           setDisplayVideo(results.s3_upload.url);
-          console.log("Using S3 uploaded video:", results.s3_upload.url);
+          
         }
         // Check for S3 links in specific processing results
         else if (results?.audio_processing?.s3_processed_file_path) {
           setDisplayVideo(results.audio_processing.s3_processed_file_path);
-          console.log("Using S3 audio-enhanced video:", results.audio_processing.s3_processed_file_path);
+          
         }
         else if (results?.video_upscaling?.s3_processed_file_path) {
           setDisplayVideo(results.video_upscaling.s3_processed_file_path);
-          console.log("Using S3 upscaled video:", results.video_upscaling.s3_processed_file_path);
+          
         }
         // Then check local processed files
         else if (results?.audio_processing?.processed_file_path) {
           const filename = results.audio_processing.processed_file_path.split("\\").pop();
           setDisplayVideo(`http://127.0.0.1:8000/media/processed/${filename}`);
-          console.log("Using local audio-enhanced video:", filename);
+          
         } 
         else if (results?.video_upscaling?.processed_file_path) {
           const filename = results.video_upscaling.processed_file_path.split("\\").pop();
           setDisplayVideo(`http://127.0.0.1:8000/media/processed/${filename}`);
-          console.log("Using local upscaled video:", filename);
+          
         }
         // Finally check original local video
         else if (localVideoPath) {
           const filename = localVideoPath.split("\\").pop();
           setDisplayVideo(`http://127.0.0.1:8000/media/${filename}`);
-          console.log("Using original local video:", filename);
+          
         }
         // Last option: Fall back to YouTube thumbnail
         else {
@@ -336,7 +330,7 @@ function SEO({ videoThumbnail }) {
               const data = await fetchVideoMetadata(videoURL);
               if (data.thumbnail) {
                 setThumbnail(data.thumbnail);
-                console.log("Using YouTube thumbnail:", data.thumbnail);
+                
               }
             } catch (error) {
               console.error("Error fetching video metadata:", error);

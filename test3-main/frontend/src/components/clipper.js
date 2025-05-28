@@ -43,7 +43,6 @@ function Clipper() {
     
     const saveOriginalVideoToDB = async (videoTitle, s3Url, videoURL, localVideoPath, thumbnailUrl) => {
         if (!user || !user.uid) {
-            console.log("❌ User not logged in. Cannot save data.");
             return;
         }
     
@@ -67,7 +66,6 @@ function Clipper() {
                 timestamp: serverTimestamp(),  // Consistent Firestore timestamp
             }, { merge: true });
     
-            console.log(`✅ Video details saved inside "videos" collection under document: ${videoTitle}`);
     
             // 🔹 Save details inside "fetchedVideos" subcollection
             await setDoc(fetchRef, {
@@ -79,7 +77,6 @@ function Clipper() {
                 timestamp: serverTimestamp(),
             }, { merge: true });
     
-            console.log("✅ Video details also saved inside 'fetchedVideos' subcollection.");
         } catch (error) {
             console.error("🔥 Error saving original video to Firestore:", error);
         }
@@ -345,12 +342,11 @@ try {
   
           // ✅ Long Form Optimization
           if (optimizationType === "Long Form") {
-              console.log("📌 Running Long Form Optimization...");
+              
   
               try {
                   response = await apiClient.post("/seo/", payload);
                   
-                  console.log("✅ Response Data:", response.data);
                   
                   if (!response.data || !response.data.results) {
                       throw new Error("Invalid response format from the server");
@@ -395,7 +391,6 @@ try {
                           saveData,
                           { merge: true }
                       );
-                      console.log(`✅ Data saved under videoTitle: ${sanitizedTitle}`);
                   } catch (firestoreError) {
                       console.error("❌ Firestore save error:", firestoreError);
                       // Continue with navigation even if Firestore fails
@@ -458,7 +453,6 @@ try {
           }
           // ✅ **Short Form Optimization**
           else if (optimizationType === "Short Form") {
-              console.log("🎬 Running Short Form Optimization...");
   
               try {
                   response = await apiClient.post(
@@ -470,7 +464,6 @@ try {
                       }
                   );
   
-                  console.log("✅ Short Form Response:", response.data);
                   
                   if (!response.data || !response.data.clips) {
                       throw new Error("Invalid response format from the server");
@@ -490,7 +483,6 @@ try {
                           },
                           { merge: true }
                       );
-                      console.log(`✅ Short Form saved under videoTitle: ${sanitizedTitle}`);
                   } catch (firestoreError) {
                       console.error("❌ Firestore save error:", firestoreError);
                       // Continue with navigation even if Firestore fails

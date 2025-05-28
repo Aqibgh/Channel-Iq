@@ -18,7 +18,6 @@ const Comparison = () => {
     s3Key,
     processedS3Url 
   } = location.state || {};
-  console.log("result: ", results);
   
   const [originalSeoData, setOriginalSeoData] = useState(null);
   const [error, setError] = useState(null);

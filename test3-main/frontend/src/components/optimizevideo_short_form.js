@@ -19,7 +19,7 @@ const Optimizevideo_shortform = () => {
   useEffect(() => {
     if (location.state) {
       const { results = {}, selectedFeatures, selectedClip, videoTitle } = location.state;
-      console.log("Received Results:", results);
+      
       setOriginalClip(selectedClip);
       setVideoTitle(videoTitle || "Untitled Video");
 
@@ -133,19 +133,15 @@ const Optimizevideo_shortform = () => {
       email_notification,
       final_processed
     }) => {
-      console.log("🔄 saveOptimizationDetails called");
+      
     
       if (!user) {
-        console.log("❌ User not logged in. Cannot save video details.");
+        c
         return;
       }
     
       // ✅ Log incoming data
-      console.log("🛠 Incoming Data:");
-      console.log("🎵 audio_processing:", audio_processing);
-      console.log("📧 email_notification:", email_notification);
-      console.log("🎞 final_processed:", final_processed);
-      console.log("🏷 videoTitle:", videoTitle);
+     
     
       try {
         const videosRef = collection(db, "users", user.uid, "videos");
@@ -198,7 +194,6 @@ const Optimizevideo_shortform = () => {
         optimizedVidData.enhancementType = enhancementType;
         optimizedVidData.selectedFeatures = selectedFeatures;
     
-        console.log("📦 Final OptimizedVid object:", optimizedVidData);
     
         const dataToSave = {
           OptimizedVid: optimizedVidData,
@@ -208,7 +203,6 @@ const Optimizevideo_shortform = () => {
     
         await setDoc(clipDocRef, dataToSave, { merge: true });
     
-        console.log("✅ Optimized video details saved successfully in Firestore!");
       } catch (error) {
         console.error("🔥 Error saving optimized video details:", error);
       }
