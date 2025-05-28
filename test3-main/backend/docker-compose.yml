@@ -10,14 +10,10 @@ services:
     environment:
       - DJANGO_SETTINGS_MODULE=backend.settings
       - PYTHONPATH=/app
-      - GUNICORN_WORKERS=8
-      - GUNICORN_THREADS=3
-      - GUNICORN_MAX_REQUESTS=3000
-      - GUNICORN_MAX_REQUESTS_JITTER=300
-      # GPU optimizations
-      - CUDA_VISIBLE_DEVICES=0
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - GUNICORN_WORKERS=4
+      - GUNICORN_THREADS=2
+      - GUNICORN_MAX_REQUESTS=1000
+      - GUNICORN_MAX_REQUESTS_JITTER=100
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
@@ -29,17 +25,11 @@ services:
     deploy:
       resources:
         limits:
-          memory: 32G  # Increased for 48GB RAM server
-          cpus: '7.0'  # Use 7 out of 9 vCPUs, leaving 2 for system
+          memory: 6G
+          cpus: '3.0'
         reservations:
-          memory: 8G   # Higher reservation for GPU workloads
-          cpus: '4.0'
-      # GPU access for Docker Compose
-      runtime: nvidia
-    devices:
-      - /dev/nvidia0:/dev/nvidia0
-      - /dev/nvidiactl:/dev/nvidiactl
-      - /dev/nvidia-uvm:/dev/nvidia-uvm
+          memory: 2G
+          cpus: '1.0'
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/health/ || python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health/', timeout=10)\" || exit 1"]
       interval: 45s
@@ -49,16 +39,12 @@ services:
     logging:
       driver: "json-file"
       options:
-        max-size: "100m"  # Increased log size for GPU server
-        max-file: "5"
+        max-size: "50m"
+        max-file: "3"
     ulimits:
       nofile:
-        soft: 131072  # Increased file limits
-        hard: 131072
-      memlock:
-        soft: -1      # Required for GPU memory allocation
-        hard: -1
-    shm_size: '4gb'   # Increased shared memory for GPU operations
+        soft: 65536
+        hard: 65536
 
   nginx:
     image: nginx:1.25-alpine
@@ -82,11 +68,11 @@ services:
     deploy:
       resources:
         limits:
-          memory: 2G    # Increased for better caching
-          cpus: '1.0'   # Increased CPU allocation
-        reservations:
           memory: 512M
           cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost/health/ || exit 1"]
       interval: 60s
@@ -96,8 +82,8 @@ services:
     logging:
       driver: "json-file"
       options:
-        max-size: "50m"  # Increased log size
-        max-file: "5"
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   sqlite_data:
@@ -130,7 +116,6 @@ networks:
     driver: bridge
     driver_opts:
       com.docker.network.bridge.name: br-django-app
-      com.docker.network.driver.mtu: 1500
     ipam:
       config:
         - subnet: 172.20.0.0/16
