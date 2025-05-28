@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM nvidia/cuda:12.1.1-devel-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     TZ=Asia/Karachi \
@@ -16,7 +16,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     # Python optimizations
     PYTHONHASHSEED=random \
     PYTHONOPTIMIZE=1 \
-    # GPU optimizations
+    # CUDA and cuDNN environment (pre-configured in base image)
     CUDA_VISIBLE_DEVICES=0 \
     NVIDIA_VISIBLE_DEVICES=all \
     NVIDIA_DRIVER_CAPABILITIES=compute,utility \
@@ -29,25 +29,24 @@ ENV DEBIAN_FRONTEND=noninteractive \
     MKL_NUM_THREADS=9 \
     OPENBLAS_NUM_THREADS=9
 
-# Install NVIDIA CUDA repository and system dependencies
+# Install Python 3.11 and system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    # CUDA support
-    wget \
-    gnupg2 \
+    # Python 3.11 installation
     software-properties-common \
-    && wget -qO - https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/3bf863cc.pub | apt-key add - \
-    && echo "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64 /" > /etc/apt/sources.list.d/cuda.list \
+    && add-apt-repository ppa:deadsnakes/ppa \
     && apt-get update && apt-get install -y --no-install-recommends \
-    # CUDA toolkit (minimal for runtime)
-    cuda-toolkit-12-1 \
+    python3.11 \
+    python3.11-dev \
+    python3.11-venv \
+    python3.11-distutils \
+    # cuDNN (not included in devel image)
+    libcudnn8 \
+    libcudnn8-dev \
     # Build dependencies
     build-essential \
     gcc \
     g++ \
     gfortran \
-    # Python development
-    python3.11-dev \
-    python3.11-venv \
     # Database
     libpq-dev \
     libpq5 \
@@ -72,28 +71,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tk-dev \
     curl \
     git \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
-# Create virtual environment with more space allocation
+# Create virtual environment with Python 3.11
 RUN python3.11 -m venv /opt/venv
 
 # Upgrade pip and install build tools
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+RUN /opt/venv/bin/pip install --no-cache-dir --upgrade pip setuptools wheel
 
 # Copy requirements first for better caching
 COPY requirement.txt /tmp/
 
 # Install Python packages optimized for GPU and high memory
 # Install PyTorch with CUDA 12.1 support first
-RUN pip install --no-cache-dir numpy scipy cython && \
+RUN /opt/venv/bin/pip install --no-cache-dir numpy scipy cython && \
     # Install PyTorch with CUDA 12.1 support
-    pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 && \
-    pip install --no-cache-dir PyYAML && \
-    pip install --no-cache-dir -r /tmp/requirement.txt && \
+    /opt/venv/bin/pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 && \
+    /opt/venv/bin/pip install --no-cache-dir PyYAML && \
+    /opt/venv/bin/pip install --no-cache-dir -r /tmp/requirement.txt && \
     # Install optimized media processing tools
-    pip install --no-cache-dir yt-dlp gunicorn[gthread] && \
+    /opt/venv/bin/pip install --no-cache-dir yt-dlp gunicorn[gthread] && \
     # Update yt-dlp to latest
-    pip install -U yt-dlp
+    /opt/venv/bin/pip install -U yt-dlp
 
 # Clean up build dependencies but keep CUDA runtime (optimized for 25GB RAM)
 RUN apt-get remove -y \
@@ -106,8 +106,6 @@ RUN apt-get remove -y \
     liblapack-dev \
     pkg-config \
     tk-dev \
-    wget \
-    gnupg2 \
     software-properties-common \
     && apt-get autoremove -y \
     && apt-get clean \
@@ -163,8 +161,8 @@ CMD ["gunicorn", \
      "--worker-connections", "200", \
      "--max-requests", "5000", \
      "--max-requests-jitter", "500", \
-     "--timeout", "300", \
-     "--graceful-timeout", "180", \
+     "--timeout", "3000", \
+     "--graceful-timeout", "1800", \
      "--keep-alive", "5", \
      "--preload", \
      "--worker-tmp-dir", "/dev/shm", \
