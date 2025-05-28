@@ -161,8 +161,8 @@ CMD ["gunicorn", \
      "--worker-connections", "200", \
      "--max-requests", "5000", \
      "--max-requests-jitter", "500", \
-     "--timeout", "3000", \
-     "--graceful-timeout", "1800", \
+     "--timeout", "300000", \
+     "--graceful-timeout", "180000", \
      "--keep-alive", "5", \
      "--preload", \
      "--worker-tmp-dir", "/dev/shm", \

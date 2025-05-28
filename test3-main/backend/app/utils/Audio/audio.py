@@ -438,22 +438,25 @@ class AudioEnhancer:
 
 
     def _apply_noise_reduction(self, audio: np.ndarray, sr: int) -> np.ndarray:
-        """Apply noise reduction to audio segment."""
+        """Apply noise reduction to audio segment using CUDA."""
         try:
-            denoiser = pretrained.dns64().cpu()
-            wav = torch.FloatTensor(audio).unsqueeze(0)
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            denoiser = pretrained.dns64().to(device)
+            
+            wav = torch.FloatTensor(audio).unsqueeze(0).to(device)
             wav = convert_audio(wav, sr, denoiser.sample_rate, denoiser.chin)
             
             with torch.no_grad():
                 denoised = denoiser(wav)[0].cpu().numpy().squeeze()
-            
+
             return librosa.resample(
-                denoised, 
-                orig_sr=denoiser.sample_rate, 
+                denoised,
+                orig_sr=denoiser.sample_rate,
                 target_sr=sr
             )
         except Exception:
             return audio
+
     def _apply_volume_normalization(self, audio: np.ndarray, sr: int, target_lufs: float = -18.0) -> np.ndarray:
         """
         Apply volume normalization to audio segment using LUFS normalization.

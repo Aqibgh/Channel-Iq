@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Configure Axios instance
 const apiClient = axios.create({
-  baseURL: 'https://3e98osbor5cgit-8000.proxy.runpod.net/api/',
+  baseURL: 'http://213.192.2.76:40115/api/',
   withCredentials: true, // Required for cookies
   headers: {
     'Content-Type': 'application/json',
