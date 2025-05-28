@@ -23,7 +23,7 @@ def transcribeAudio(audio_path, language=None):
 
         # Set up device
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        model = WhisperModel("base", device=device)
+        model = WhisperModel("medium", device=device)
 
         # Perform transcription
         segments, info = model.transcribe(

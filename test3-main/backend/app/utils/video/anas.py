@@ -255,7 +255,7 @@ class AI:
 
     def _load_inferenceSession(self) -> InferenceSession:
 
-        providers = ['DmlExecutionProvider']
+        providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
         import onnxruntime as ort
         print(ort.get_available_providers())
 

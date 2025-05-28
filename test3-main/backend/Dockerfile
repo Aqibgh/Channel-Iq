@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     TZ=Asia/Karachi \
@@ -6,53 +6,54 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PATH="/opt/venv/bin:$PATH" \
-    # Memory optimization
-    MALLOC_ARENA_MAX=2 \
-    MALLOC_MMAP_THRESHOLD_=131072 \
-    MALLOC_TRIM_THRESHOLD_=131072 \
-    MALLOC_TOP_PAD_=131072 \
-    MALLOC_MMAP_MAX_=65536 \
+    PATH="/opt/conda/bin:$PATH" \
+    # Memory optimization for 48GB RAM
+    MALLOC_ARENA_MAX=4 \
+    MALLOC_MMAP_THRESHOLD_=262144 \
+    MALLOC_TRIM_THRESHOLD_=262144 \
+    MALLOC_TOP_PAD_=262144 \
+    MALLOC_MMAP_MAX_=131072 \
     # Python optimizations
     PYTHONHASHSEED=random \
-    PYTHONOPTIMIZE=1
+    PYTHONOPTIMIZE=1 \
+    # GPU optimizations
+    CUDA_LAUNCH_BLOCKING=0 \
+    CUDA_CACHE_DISABLE=0 \
+    CUDA_DEVICE_ORDER=PCI_BUS_ID \
+    NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
-# Install system dependencies in optimized stages
+# Update system and install dependencies optimized for GPU workloads
 RUN apt-get update && apt-get install -y --no-install-recommends \
     # Build dependencies
     build-essential \
     gcc \
     g++ \
     gfortran \
-    # Python development
-    python3.11-dev \
-    python3.11-venv \
     # Database
     libpq-dev \
     libpq5 \
-    # Audio/Video processing (optimized)
+    # Audio/Video processing (GPU accelerated)
     ffmpeg \
     libsndfile1 \
     libportaudio2 \
-    # Essential graphics libraries only
+    # Essential graphics libraries
     libsm6 \
     libxext6 \
     libxrender1 \
     libgl1-mesa-glx \
-    # Math libraries
+    libglib2.0-0 \
+    # Math libraries optimized for GPU
     libopenblas-dev \
     liblapack-dev \
     libblas-dev \
     # Utilities
     libmagic1 \
     pkg-config \
-    python3-tk \
-    tk-dev \
     curl \
+    wget \
+    git \
     && rm -rf /var/lib/apt/lists/*
-
-# Create virtual environment
-RUN python3.11 -m venv /opt/venv
 
 # Upgrade pip and install build tools
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
@@ -60,34 +61,31 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 # Copy requirements first for better caching
 COPY requirement.txt /tmp/
 
-# Install Python packages in optimized order with proper CPU utilization
-RUN pip install --no-cache-dir numpy && \
-    pip install --no-cache-dir scipy && \
-    pip install --no-cache-dir cython && \
-    pip install --no-cache-dir PyYAML && \
-    pip install --no-cache-dir torch torchvision torchaudio && \
+# Install Python packages in optimized order for GPU workloads
+RUN pip install --no-cache-dir numpy scipy cython PyYAML && \
+    pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124 && \
     pip install --no-cache-dir -r /tmp/requirement.txt && \
     pip install --no-cache-dir yt-dlp gunicorn[gthread]
+
+# Update yt-dlp to latest version
 RUN pip install -U yt-dlp
 
-# Clean up build dependencies and cache (optimized for 8GB RAM)
+# Clean up build dependencies and cache (optimized for 48GB RAM)
 RUN apt-get remove -y \
     build-essential \
     gcc \
     g++ \
     gfortran \
-    python3.11-dev \
     libopenblas-dev \
     liblapack-dev \
     pkg-config \
-    tk-dev \
     && apt-get autoremove -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /tmp/* /var/tmp/* /root/.cache \
-    && find /opt/venv -name "*.pyc" -delete \
-    && find /opt/venv -name "*.pyo" -delete \
-    && find /opt/venv -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+    && find /opt/conda -name "*.pyc" -delete \
+    && find /opt/conda -name "*.pyo" -delete \
+    && find /opt/conda -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 
 # Create optimized non-root user
 RUN useradd -m -u 1000 -s /bin/bash appuser && \
@@ -95,8 +93,8 @@ RUN useradd -m -u 1000 -s /bin/bash appuser && \
     mkdir -p /app/{logs,media,staticfiles,data,tmp} && \
     chown -R appuser:appuser /app && \
     # Set proper permissions for clipsai media directory for appuser
-    chown -R appuser:appuser /opt/venv/lib/python3.11/site-packages/clipsai/media && \
-    chmod -R 755 /opt/venv/lib/python3.11/site-packages/clipsai/media
+    chown -R appuser:appuser /opt/conda/lib/python3.11/site-packages/clipsai/media 2>/dev/null || true && \
+    chmod -R 755 /opt/conda/lib/python3.11/site-packages/clipsai/media 2>/dev/null || true
 
 # Set working directory
 WORKDIR /app
@@ -115,22 +113,25 @@ USER appuser
 RUN python manage.py collectstatic --noinput --clear || \
     (echo "Static files collection failed, but continuing..." && ls -la /app/)
 
-# Optimized health check for 8GB setup
+# Optimized health check for GPU server
 HEALTHCHECK --interval=45s --timeout=20s --start-period=90s --retries=3 \
     CMD curl -f http://localhost:8000/health/ || python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/', timeout=15)" || exit 1
 
 # Expose port
 EXPOSE 8000
-RUN chmod -R 755 /opt/venv/lib/python3.11/site-packages/clipsai/media || true
-# Optimized gunicorn configuration for 8GB RAM / 4 CPU setup
+
+# Set proper permissions for clipsai media directory
+RUN chmod -R 755 /opt/conda/lib/python3.11/site-packages/clipsai/media 2>/dev/null || true
+
+# Optimized gunicorn configuration for 48GB RAM / 9 vCPU setup
 CMD ["gunicorn", \
      "--bind", "0.0.0.0:8000", \
-     "--workers", "4", \
-     "--threads", "2", \
+     "--workers", "8", \
+     "--threads", "3", \
      "--worker-class", "gthread", \
-     "--worker-connections", "100", \
-     "--max-requests", "2000", \
-     "--max-requests-jitter", "200", \
+     "--worker-connections", "200", \
+     "--max-requests", "3000", \
+     "--max-requests-jitter", "300", \
      "--timeout", "3000", \
      "--graceful-timeout", "3000", \
      "--keep-alive", "10", \
