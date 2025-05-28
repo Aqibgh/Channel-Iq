@@ -243,16 +243,36 @@
   overflow: hidden;
   position: relative;
   background: var(--color-card-background);
-  border: 2px solid rgba(143, 58, 245, 0.4); /* Changed border width and opacity */
-  box-shadow: 0 0 10px rgba(143, 58, 245, 0.2); /* Added subtle glow effect */
+  border: 2px solid rgba(143, 58, 245, 0.4);
+  box-shadow: 0 0 10px rgba(143, 58, 245, 0.2);
+  cursor: pointer;
+  transition: all 0.3s ease;
 }
 
-.clip-card:hover .clip-videos {
-  transform: scale(1.02);
+.clip-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(143, 58, 245, 0.3);
 }
 
 .clip-card.selected {
   border: 2px solid #8f3af5;
+  box-shadow: 0 0 20px rgba(143, 58, 245, 0.4);
+}
+
+.clip-card.selected::after {
+  content: '✓';
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 25px;
+  height: 25px;
+  background: #8f3af5;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
 }
 
 .clip-preview {
@@ -262,6 +282,7 @@
   background: #000;
   position: relative;
   flex-shrink: 0;
+  cursor: pointer;
 }
 
 .clip-videos {
@@ -269,6 +290,7 @@
   height: 514px; 
   transition: transform 0.3s ease;
   flex: 1; /* Take up remaining space */
+  object-fit: cover;
 }
 .clip-info {
   padding: 1rem;

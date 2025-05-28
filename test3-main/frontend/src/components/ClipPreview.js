@@ -75,32 +75,35 @@ function ClipPreview() {
     useEffect(() => {
         if (!clipPaths || clipPaths.length === 0) {
             setError("No clips found to display.");
-        } else {
-            // Handle the new S3 format
-            const clips = clipPaths.map(clip => {
-                // Check if the clip is an object with url and key properties (S3 format)
-                if (typeof clip === 'object' && clip.url) {
-                    return {
-                        url: clip.url,
-                        key: clip.key
-                    };
-                } else {
-                    // Fallback for older format (local path)
-                    return {
-                        url: `http://127.0.0.1:8000/media/${clip}`,
-                        key: clip
-                    };
-                }
-            });            setProcessedClips(clips);
-            // Automatically select the first clip if clips are available
-            if (clips.length > 0 && !selectedClip) {
-                setSelectedClip(clips[0]);
-            }
+            return;
         }
-    }, [clipPaths, selectedClip]);
+        
+        // Handle the new S3 format
+        const clips = clipPaths.map(clip => {
+            // Check if the clip is an object with url and key properties (S3 format)
+            if (typeof clip === 'object' && clip.url) {
+                return {
+                    url: clip.url,
+                    key: clip.key
+                };
+            } else {
+                // Fallback for older format (local path)
+                return {
+                    url: `http://127.0.0.1:8000/media/${clip}`,
+                    key: clip
+                };
+            }
+        });
+        
+        setProcessedClips(clips);
+        // Always select the first clip by default
+        setSelectedClip(clips[0]);
+    }, [clipPaths]); // Only depend on clipPaths change
 
     const handleClipSelection = (clip) => {
-        setSelectedClip(selectedClip === clip ? null : clip);
+        // Since we want one clip selected at all times, don't allow deselection
+        // Just change selection to the clicked clip
+        setSelectedClip(clip);
     };
 
     const handleFeatureToggle = (feature) => {
