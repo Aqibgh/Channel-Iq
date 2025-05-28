@@ -7,18 +7,39 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PATH="/opt/venv/bin:$PATH" \
-    # Memory optimization
-    MALLOC_ARENA_MAX=2 \
-    MALLOC_MMAP_THRESHOLD_=131072 \
-    MALLOC_TRIM_THRESHOLD_=131072 \
-    MALLOC_TOP_PAD_=131072 \
-    MALLOC_MMAP_MAX_=65536 \
+    # Memory optimization for 25GB RAM
+    MALLOC_ARENA_MAX=4 \
+    MALLOC_MMAP_THRESHOLD_=262144 \
+    MALLOC_TRIM_THRESHOLD_=262144 \
+    MALLOC_TOP_PAD_=262144 \
+    MALLOC_MMAP_MAX_=131072 \
     # Python optimizations
     PYTHONHASHSEED=random \
-    PYTHONOPTIMIZE=1
+    PYTHONOPTIMIZE=1 \
+    # GPU optimizations
+    CUDA_VISIBLE_DEVICES=0 \
+    NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility \
+    # PyTorch optimizations for RTX A5000
+    TORCH_CUDA_ARCH_LIST="8.6" \
+    CUDA_LAUNCH_BLOCKING=0 \
+    TORCH_CUDNN_V8_API_ENABLED=1 \
+    # OMP optimization for 9 vCPU
+    OMP_NUM_THREADS=9 \
+    MKL_NUM_THREADS=9 \
+    OPENBLAS_NUM_THREADS=9
 
-# Install system dependencies in optimized stages
+# Install NVIDIA CUDA repository and system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    # CUDA support
+    wget \
+    gnupg2 \
+    software-properties-common \
+    && wget -qO - https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/3bf863cc.pub | apt-key add - \
+    && echo "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64 /" > /etc/apt/sources.list.d/cuda.list \
+    && apt-get update && apt-get install -y --no-install-recommends \
+    # CUDA toolkit (minimal for runtime)
+    cuda-toolkit-12-1 \
     # Build dependencies
     build-essential \
     gcc \
@@ -30,16 +51,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Database
     libpq-dev \
     libpq5 \
-    # Audio/Video processing (optimized)
+    # Audio/Video processing with GPU acceleration
     ffmpeg \
     libsndfile1 \
     libportaudio2 \
-    # Essential graphics libraries only
+    # Graphics libraries for GPU computing
     libsm6 \
     libxext6 \
     libxrender1 \
     libgl1-mesa-glx \
-    # Math libraries
+    libglib2.0-0 \
+    # Optimized math libraries
     libopenblas-dev \
     liblapack-dev \
     libblas-dev \
@@ -49,9 +71,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-tk \
     tk-dev \
     curl \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
-# Create virtual environment
+# Create virtual environment with more space allocation
 RUN python3.11 -m venv /opt/venv
 
 # Upgrade pip and install build tools
@@ -60,17 +83,19 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 # Copy requirements first for better caching
 COPY requirement.txt /tmp/
 
-# Install Python packages in optimized order with proper CPU utilization
-RUN pip install --no-cache-dir numpy && \
-    pip install --no-cache-dir scipy && \
-    pip install --no-cache-dir cython && \
+# Install Python packages optimized for GPU and high memory
+# Install PyTorch with CUDA 12.1 support first
+RUN pip install --no-cache-dir numpy scipy cython && \
+    # Install PyTorch with CUDA 12.1 support
+    pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 && \
     pip install --no-cache-dir PyYAML && \
-    pip install --no-cache-dir torch torchvision torchaudio && \
     pip install --no-cache-dir -r /tmp/requirement.txt && \
-    pip install --no-cache-dir yt-dlp gunicorn[gthread]
-RUN pip install -U yt-dlp
+    # Install optimized media processing tools
+    pip install --no-cache-dir yt-dlp gunicorn[gthread] && \
+    # Update yt-dlp to latest
+    pip install -U yt-dlp
 
-# Clean up build dependencies and cache (optimized for 8GB RAM)
+# Clean up build dependencies but keep CUDA runtime (optimized for 25GB RAM)
 RUN apt-get remove -y \
     build-essential \
     gcc \
@@ -81,6 +106,9 @@ RUN apt-get remove -y \
     liblapack-dev \
     pkg-config \
     tk-dev \
+    wget \
+    gnupg2 \
+    software-properties-common \
     && apt-get autoremove -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
@@ -89,12 +117,14 @@ RUN apt-get remove -y \
     && find /opt/venv -name "*.pyo" -delete \
     && find /opt/venv -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 
+# Create app directories first
+RUN mkdir -p /app/{logs,media,staticfiles,data,tmp,models,models/cache}
+
 # Create optimized non-root user
 RUN useradd -m -u 1000 -s /bin/bash appuser && \
-    # Create app directories with proper permissions
-    mkdir -p /app/{logs,media,staticfiles,data,tmp} && \
+    # Set ownership of app directories
     chown -R appuser:appuser /app && \
-    # Set proper permissions for clipsai media directory for appuser
+    # Set proper permissions for clipsai media directory
     chown -R appuser:appuser /opt/venv/lib/python3.11/site-packages/clipsai/media && \
     chmod -R 755 /opt/venv/lib/python3.11/site-packages/clipsai/media
 
@@ -104,9 +134,8 @@ WORKDIR /app
 # Copy project files with proper ownership
 COPY --chown=appuser:appuser . .
 
-# Create necessary directories (additional)
-RUN mkdir -p /app/logs /app/media /app/staticfiles /app/data && \
-    chown -R appuser:appuser /app
+# Ensure proper ownership of all directories
+RUN chown -R appuser:appuser /app
 
 # Switch to non-root user
 USER appuser
@@ -115,25 +144,28 @@ USER appuser
 RUN python manage.py collectstatic --noinput --clear || \
     (echo "Static files collection failed, but continuing..." && ls -la /app/)
 
-# Optimized health check for 8GB setup
-HEALTHCHECK --interval=45s --timeout=20s --start-period=90s --retries=3 \
-    CMD curl -f http://localhost:8000/health/ || python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/', timeout=15)" || exit 1
+# GPU-optimized health check
+HEALTHCHECK --interval=30s --timeout=15s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8000/health/ || python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/', timeout=10)" || exit 1
 
 # Expose port
 EXPOSE 8000
+
+# Set final permissions
 RUN chmod -R 755 /opt/venv/lib/python3.11/site-packages/clipsai/media || true
-# Optimized gunicorn configuration for 8GB RAM / 4 CPU setup
+
+# Optimized gunicorn configuration for RTX A5000 setup (25GB RAM / 9 vCPU)
 CMD ["gunicorn", \
      "--bind", "0.0.0.0:8000", \
-     "--workers", "4", \
-     "--threads", "2", \
+     "--workers", "9", \
+     "--threads", "3", \
      "--worker-class", "gthread", \
-     "--worker-connections", "100", \
-     "--max-requests", "2000", \
-     "--max-requests-jitter", "200", \
-     "--timeout", "3000", \
-     "--graceful-timeout", "3000", \
-     "--keep-alive", "10", \
+     "--worker-connections", "200", \
+     "--max-requests", "5000", \
+     "--max-requests-jitter", "500", \
+     "--timeout", "300", \
+     "--graceful-timeout", "180", \
+     "--keep-alive", "5", \
      "--preload", \
      "--worker-tmp-dir", "/dev/shm", \
      "--access-logfile", "/app/logs/gunicorn-access.log", \

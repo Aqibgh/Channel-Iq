@@ -32,6 +32,7 @@ pydub==0.25.1
 librosa==0.10.2.post1
 soundfile==0.12.1
 pyloudnorm==0.1.1
+runpod>=1.5.0
 denoiser==0.1.5
 transformers==4.36.2
 openai==1.66.2
@@ -45,7 +46,6 @@ deep-translator==1.11.4
 django-allauth==65.7.0
 django-cors-headers==4.7.0
 djangorestframework_simplejwt==5.5.0
-dotenv==0.9.9
 easyocr==1.7.2
 fer==22.5.1
 filterpy==1.4.5
