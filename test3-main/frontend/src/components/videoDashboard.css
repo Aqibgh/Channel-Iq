@@ -2,6 +2,8 @@
     width: 100%;
     max-width: 1200px;
     margin: auto;
+    
+    margin-top: 20px;
   }
   
   
@@ -11,7 +13,9 @@
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); /* 4 in a row if space allows */
     gap: 16px;
   }
-  
+  .h3 {
+    font-size: 30px;
+  }
   .video-card {
     background-color: rgb(58, 0, 128);
     border-radius: 8px;
