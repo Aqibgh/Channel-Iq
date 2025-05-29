@@ -343,7 +343,7 @@ RESPONSE MUST BE PURE JSON — DO NOT INCLUDE EXPLANATIONS OR NOTES.
             user_message = transcription + f"\n\nIMPORTANT: Generate EXACTLY {num_highlights} clips as valid JSON only. No explanations."
             
             response = client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-4o",
                 temperature=0.3,  # Lower temperature for more deterministic results
                 response_format={"type": "json_object"},  # Force JSON response format
                 messages=[

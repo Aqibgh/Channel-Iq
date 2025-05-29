@@ -97,7 +97,6 @@ RUN /opt/venv/bin/pip install --no-cache-dir numpy scipy cython && \
     /opt/venv/bin/pip install --no-cache-dir yt-dlp gunicorn[gthread] && \
     # Update yt-dlp to latest
     /opt/venv/bin/pip install -U yt-dlp
-
 # Clean up build dependencies but keep CUDA runtime (optimized for 25GB RAM)
 RUN apt-get remove -y \
     build-essential \

@@ -511,7 +511,7 @@ class EnhancedYouTubeSEOGenerator:
             
             print("Prompt: ",prompt)
             completion = client.chat.completions.create(
-                model="gpt-4o-mini",  # Using the most capable model
+                model="gpt-4o",  # Using the most capable model
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt}
@@ -704,7 +704,7 @@ class EnhancedYouTubeSEOGenerator:
             print("Prompt: ", prompt)
 
             completion = client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-4o",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt}
