@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Configure Axios instance
 const apiClient = axios.create({
-  baseURL: 'http://213.192.2.76:40115/api/',
+  baseURL: 'https://213.192.2.109:40043/api/',
   withCredentials: true, // Required for cookies
   headers: {
     'Content-Type': 'application/json',

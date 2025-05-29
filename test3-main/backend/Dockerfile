@@ -72,6 +72,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     git \
     wget \
+    # SSL/TLS support
+    openssl \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Create virtual environment with Python 3.11
@@ -116,7 +119,11 @@ RUN apt-get remove -y \
     && find /opt/venv -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 
 # Create app directories first
-RUN mkdir -p /app/{logs,media,staticfiles,data,tmp,models,models/cache}
+RUN mkdir -p /app/logs /app/media /app/staticfiles /app/data /app/tmp /app/models /app/models/cache /app/ssl
+
+# Generate self-signed SSL certificate for development/testing
+RUN openssl req -x509 -newkey rsa:4096 -keyout /app/ssl/key.pem -out /app/ssl/cert.pem -days 365 -nodes \
+    -subj "/C=PK/ST=Sindh/L=Karachi/O=Development/CN=localhost"
 
 # Create optimized non-root user
 RUN useradd -m -u 1000 -s /bin/bash appuser && \
@@ -124,7 +131,10 @@ RUN useradd -m -u 1000 -s /bin/bash appuser && \
     chown -R appuser:appuser /app && \
     # Set proper permissions for clipsai media directory
     chown -R appuser:appuser /opt/venv/lib/python3.11/site-packages/clipsai/media && \
-    chmod -R 755 /opt/venv/lib/python3.11/site-packages/clipsai/media
+    chmod -R 755 /opt/venv/lib/python3.11/site-packages/clipsai/media && \
+    # Set SSL certificate permissions
+    chmod 600 /app/ssl/key.pem && \
+    chmod 644 /app/ssl/cert.pem
 
 # Set working directory
 WORKDIR /app
@@ -142,19 +152,22 @@ USER appuser
 RUN python manage.py collectstatic --noinput --clear || \
     (echo "Static files collection failed, but continuing..." && ls -la /app/)
 
-# GPU-optimized health check
+# GPU-optimized health check (updated for HTTPS)
 HEALTHCHECK --interval=30s --timeout=15s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:8000/health/ || python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/', timeout=10)" || exit 1
+    CMD curl -k -f https://localhost:8443/health/ || python -c "import urllib.request, ssl; ctx = ssl.create_default_context(); ctx.check_hostname = False; ctx.verify_mode = ssl.CERT_NONE; urllib.request.urlopen('https://localhost:8443/health/', timeout=10, context=ctx)" || exit 1
 
-# Expose port
-EXPOSE 8000
+# Expose HTTPS port
+EXPOSE 8443
 
 # Set final permissions
 RUN chmod -R 755 /opt/venv/lib/python3.11/site-packages/clipsai/media || true
 
-# Optimized gunicorn configuration for RTX A5000 setup (25GB RAM / 9 vCPU)
+# Optimized gunicorn configuration with HTTPS support
 CMD ["gunicorn", \
-     "--bind", "0.0.0.0:8000", \
+     "--bind", "0.0.0.0:8443", \
+     "--certfile", "/app/ssl/cert.pem", \
+     "--keyfile", "/app/ssl/key.pem", \
+     "--ssl-version", "TLSv1_2", \
      "--workers", "9", \
      "--threads", "3", \
      "--worker-class", "gthread", \
