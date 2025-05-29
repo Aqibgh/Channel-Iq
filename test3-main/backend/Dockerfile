@@ -1,5 +1,5 @@
 FROM nvidia/cuda:12.1.1-devel-ubuntu22.04
-
+RUN sed -i 's|http://archive.ubuntu.com|https://archive.ubuntu.com|g' /etc/apt/sources.list
 ENV DEBIAN_FRONTEND=noninteractive \
     TZ=Asia/Karachi \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -31,9 +31,15 @@ ENV DEBIAN_FRONTEND=noninteractive \
     # CRITICAL: ONNX Runtime CUDA library path - Updated for cuDNN 9
     LD_LIBRARY_PATH="/usr/local/cuda/lib64:/opt/venv/lib/python3.11/site-packages/onnxruntime/capi:/opt/venv/lib/python3.11/site-packages/nvidia/cuda_runtime/lib:/opt/venv/lib/python3.11/site-packages/nvidia/cudnn/lib:$LD_LIBRARY_PATH" \
     CUDA_HOME="/usr/local/cuda" \
-    CUDA_ROOT="/usr/local/cuda"
+    CUDA_ROOT="/usr/local/cuda" \
+    # FIX: Set writable cache directories for libraries
+    NLTK_DATA="/app/data/nltk_data" \
+    MPLCONFIGDIR="/app/data/matplotlib" \
+    TRANSFORMERS_CACHE="/app/data/transformers" \
+    HF_HOME="/app/data/huggingface" \
+    TORCH_HOME="/app/data/torch"
 
-# Install Python 3.11 and system dependencies
+# Install Python 3.11, Nginx and system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     # Python 3.11 installation
     software-properties-common \
@@ -43,6 +49,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3.11-dev \
     python3.11-venv \
     python3.11-distutils \
+    # Nginx and supervisor for process management
+    nginx \
+    supervisor \
     # CUDA runtime libraries (CRITICAL for ONNX Runtime)
     cuda-runtime-12-1 \
     cuda-libraries-12-1 \
@@ -113,6 +122,27 @@ RUN ldconfig && \
     # List NVIDIA packages installed
     /opt/venv/bin/pip list | grep nvidia || echo "No NVIDIA packages found"
 
+# Create app directories first - INCLUDING cache directories for libraries
+RUN mkdir -p /app/logs /app/media /app/staticfiles /app/data /app/tmp /app/models /app/models/cache \
+    /app/data/nltk_data /app/data/matplotlib /app/data/transformers /app/data/huggingface /app/data/torch
+
+# Create nginx directories and copy SSL certificates
+RUN mkdir -p /etc/nginx/ssl /var/log/nginx /var/lib/nginx/body /var/lib/nginx/fastcgi /var/lib/nginx/proxy /var/lib/nginx/scgi /var/lib/nginx/uwsgi
+
+# Copy SSL certificates from nginx/ssl/ to container
+COPY nginx/ssl/privkey.pem /etc/nginx/ssl/privkey.pem
+COPY nginx/ssl/fullchain.pem /etc/nginx/ssl/fullchain.pem
+
+# Set proper SSL certificate permissions
+RUN chmod 600 /etc/nginx/ssl/privkey.pem && \
+    chmod 644 /etc/nginx/ssl/fullchain.pem
+
+# Copy nginx configuration files
+COPY nginx/nginx.conf /etc/nginx/nginx.conf
+
+# Copy supervisor configuration
+COPY supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
 # Clean up build dependencies but keep CUDA runtime (optimized for 25GB RAM)
 RUN apt-get remove -y \
     build-essential \
@@ -133,23 +163,15 @@ RUN apt-get remove -y \
     && find /opt/venv -name "*.pyo" -delete \
     && find /opt/venv -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 
-# Create app directories first
-RUN mkdir -p /app/logs /app/media /app/staticfiles /app/data /app/tmp /app/models /app/models/cache /app/ssl
-
-# Generate self-signed SSL certificate for development/testing
-RUN openssl req -x509 -newkey rsa:4096 -keyout /app/ssl/key.pem -out /app/ssl/cert.pem -days 365 -nodes \
-    -subj "/C=PK/ST=Sindh/L=Karachi/O=Development/CN=localhost"
-
 # Create optimized non-root user
 RUN useradd -m -u 1000 -s /bin/bash appuser && \
-    # Set ownership of app directories
+    # Set ownership of app directories - INCLUDING cache directories
     chown -R appuser:appuser /app && \
     # Set proper permissions for clipsai media directory
     chown -R appuser:appuser /opt/venv/lib/python3.11/site-packages/clipsai/media 2>/dev/null || true && \
     chmod -R 755 /opt/venv/lib/python3.11/site-packages/clipsai/media 2>/dev/null || true && \
-    # Set SSL certificate permissions
-    chmod 600 /app/ssl/key.pem && \
-    chmod 644 /app/ssl/cert.pem
+    # Set nginx permissions
+    chown -R www-data:www-data /var/lib/nginx /var/log/nginx
 
 # Set working directory
 WORKDIR /app
@@ -157,11 +179,16 @@ WORKDIR /app
 # Copy project files with proper ownership
 COPY --chown=appuser:appuser . .
 
-# Ensure proper ownership of all directories
-RUN chown -R appuser:appuser /app
+# Ensure proper ownership of all directories INCLUDING cache directories
+RUN chown -R appuser:appuser /app && \
+    mkdir -p /app/logs && \
+    chown -R appuser:appuser /app/logs && \
+    chmod 755 /app/logs
 
-# Switch to non-root user
+# Pre-download NLTK data as appuser to avoid runtime permission issues
 USER appuser
+RUN python3 -c "import nltk; nltk.download('punkt', download_dir='/app/data/nltk_data')" || echo "NLTK download failed, will try at runtime"
+USER root
 
 # Test ONNX Runtime GPU functionality before finalizing
 RUN python3 -c "import onnxruntime as ort; print('ONNX Runtime version:', ort.__version__); print('Available providers:', ort.get_available_providers()); import torch; print('PyTorch CUDA available:', torch.cuda.is_available()); print('PyTorch version:', torch.__version__)"
@@ -170,36 +197,15 @@ RUN python3 -c "import onnxruntime as ort; print('ONNX Runtime version:', ort.__
 RUN python manage.py collectstatic --noinput --clear || \
     (echo "Static files collection failed, but continuing..." && ls -la /app/)
 
-# GPU-optimized health check (updated for HTTPS)
+# GPU-optimized health check (updated for domain)
 HEALTHCHECK --interval=30s --timeout=15s --start-period=60s --retries=3 \
-    CMD curl -k -f https://localhost:8443/health/ || python -c "import urllib.request, ssl; ctx = ssl.create_default_context(); ctx.check_hostname = False; ctx.verify_mode = ssl.CERT_NONE; urllib.request.urlopen('https://localhost:8443/health/', timeout=10, context=ctx)" || exit 1
+    CMD curl -k -f https://localhost/health/ || exit 1
 
-# Expose HTTPS port
-EXPOSE 8443
+# Expose HTTP and HTTPS ports
+EXPOSE 80 443
 
 # Set final permissions
 RUN chmod -R 755 /opt/venv/lib/python3.11/site-packages/clipsai/media 2>/dev/null || true
 
-# Optimized gunicorn configuration with HTTPS support
-CMD ["gunicorn", \
-     "--bind", "0.0.0.0:8443", \
-     "--certfile", "/app/ssl/cert.pem", \
-     "--keyfile", "/app/ssl/key.pem", \
-     "--ssl-version", "TLSv1_2", \
-     "--workers", "9", \
-     "--threads", "3", \
-     "--worker-class", "gthread", \
-     "--worker-connections", "200", \
-     "--max-requests", "5000", \
-     "--max-requests-jitter", "500", \
-     "--timeout", "300000", \
-     "--graceful-timeout", "180000", \
-     "--keep-alive", "5", \
-     "--preload", \
-     "--worker-tmp-dir", "/dev/shm", \
-     "--access-logfile", "/app/logs/gunicorn-access.log", \
-     "--error-logfile", "/app/logs/gunicorn-error.log", \
-     "--log-level", "info", \
-     "--capture-output", \
-     "--enable-stdio-inheritance", \
-     "backend.wsgi:application"]
+# Start supervisor to manage both nginx and django
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
