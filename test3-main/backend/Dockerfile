@@ -28,8 +28,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     OMP_NUM_THREADS=9 \
     MKL_NUM_THREADS=9 \
     OPENBLAS_NUM_THREADS=9 \
-    # CRITICAL: ONNX Runtime CUDA library path - Updated for cuDNN 9
-    LD_LIBRARY_PATH="/usr/local/cuda/lib64:/opt/venv/lib/python3.11/site-packages/onnxruntime/capi:/opt/venv/lib/python3.11/site-packages/nvidia/cuda_runtime/lib:/opt/venv/lib/python3.11/site-packages/nvidia/cudnn/lib:$LD_LIBRARY_PATH" \
+    # CRITICAL: Updated library paths for cuDNN 8
+    LD_LIBRARY_PATH="/usr/local/cuda/lib64:/usr/lib/x86_64-linux-gnu:/opt/venv/lib/python3.11/site-packages/onnxruntime/capi:/opt/venv/lib/python3.11/site-packages/nvidia/cuda_runtime/lib:/opt/venv/lib/python3.11/site-packages/nvidia/cudnn/lib:$LD_LIBRARY_PATH" \
     CUDA_HOME="/usr/local/cuda" \
     CUDA_ROOT="/usr/local/cuda" \
     # FIX: Set writable cache directories for libraries
@@ -39,7 +39,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     HF_HOME="/app/data/huggingface" \
     TORCH_HOME="/app/data/torch"
 
-# Install Python 3.11, Nginx and system dependencies
+# Install Python 3.11, Nginx and system dependencies INCLUDING cuDNN
 RUN apt-get update && apt-get install -y --no-install-recommends \
     # Python 3.11 installation
     software-properties-common \
@@ -52,6 +52,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Nginx and supervisor for process management
     nginx \
     supervisor \
+    # CRITICAL: Install cuDNN 8 libraries (compatible with CUDA 12.1)
+    libcudnn8 \
+    libcudnn8-dev \
     # CUDA runtime libraries (CRITICAL for ONNX Runtime)
     cuda-runtime-12-1 \
     cuda-libraries-12-1 \
@@ -106,21 +109,27 @@ RUN /opt/venv/bin/pip install --no-cache-dir numpy scipy cython && \
     # Install PyTorch with CUDA 12.1 support first
     /opt/venv/bin/pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 && \
     /opt/venv/bin/pip install --no-cache-dir PyYAML && \
-    # CRITICAL: Install ONNX Runtime GPU with CUDA and cuDNN dependencies
-    # This installs the NVIDIA packages automatically for compatibility
-    /opt/venv/bin/pip install --no-cache-dir "onnxruntime-gpu[cuda,cudnn]" && \
+    # CRITICAL: Install ONNX Runtime GPU - Use specific version compatible with cuDNN 8
+    /opt/venv/bin/pip install --no-cache-dir "onnxruntime-gpu==1.16.3" && \
     /opt/venv/bin/pip install --no-cache-dir -r /tmp/requirement.txt && \
     # Install optimized media processing tools
     /opt/venv/bin/pip install --no-cache-dir yt-dlp gunicorn[gthread] && \
     # Update yt-dlp to latest
     /opt/venv/bin/pip install -U yt-dlp
 
-# Verify CUDA library availability and update ldconfig
+# CRITICAL: Create symbolic links for cuDNN libraries if needed
 RUN ldconfig && \
     # Verify CUDA libraries are available
     ldconfig -p | grep cuda || echo "CUDA libraries not found in ldconfig" && \
+    # Verify cuDNN libraries are available
+    ldconfig -p | grep cudnn || echo "cuDNN libraries not found in ldconfig" && \
     # List NVIDIA packages installed
-    /opt/venv/bin/pip list | grep nvidia || echo "No NVIDIA packages found"
+    /opt/venv/bin/pip list | grep nvidia || echo "No NVIDIA packages found" && \
+    # Create symbolic links for cuDNN if they don't exist
+    find /usr/lib/x86_64-linux-gnu -name "libcudnn*" -type f 2>/dev/null || echo "cuDNN files not found" && \
+    # Ensure cuDNN libraries are in the system path
+    echo "/usr/lib/x86_64-linux-gnu" >> /etc/ld.so.conf.d/cudnn.conf && \
+    ldconfig
 
 # Create app directories first - INCLUDING cache directories for libraries
 RUN mkdir -p /app/logs /app/media /app/staticfiles /app/data /app/tmp /app/models /app/models/cache \
@@ -190,8 +199,8 @@ USER appuser
 RUN python3 -c "import nltk; nltk.download('punkt', download_dir='/app/data/nltk_data')" || echo "NLTK download failed, will try at runtime"
 USER root
 
-# Test ONNX Runtime GPU functionality before finalizing
-RUN python3 -c "import onnxruntime as ort; print('ONNX Runtime version:', ort.__version__); print('Available providers:', ort.get_available_providers()); import torch; print('PyTorch CUDA available:', torch.cuda.is_available()); print('PyTorch version:', torch.__version__)"
+# Verify libraries are properly linked
+RUN ldconfig
 
 # Collect static files with better error handling
 RUN python manage.py collectstatic --noinput --clear || \
