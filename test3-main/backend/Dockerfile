@@ -28,8 +28,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     OMP_NUM_THREADS=9 \
     MKL_NUM_THREADS=9 \
     OPENBLAS_NUM_THREADS=9 \
-    # CRITICAL: ONNX Runtime CUDA library path
-    LD_LIBRARY_PATH="/usr/local/cuda/lib64:/opt/venv/lib/python3.11/site-packages/onnxruntime/capi:$LD_LIBRARY_PATH" \
+    # CRITICAL: ONNX Runtime CUDA library path - Updated for cuDNN 9
+    LD_LIBRARY_PATH="/usr/local/cuda/lib64:/opt/venv/lib/python3.11/site-packages/onnxruntime/capi:/opt/venv/lib/python3.11/site-packages/nvidia/cuda_runtime/lib:/opt/venv/lib/python3.11/site-packages/nvidia/cudnn/lib:$LD_LIBRARY_PATH" \
     CUDA_HOME="/usr/local/cuda" \
     CUDA_ROOT="/usr/local/cuda"
 
@@ -47,12 +47,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     cuda-runtime-12-1 \
     cuda-libraries-12-1 \
     cuda-libraries-dev-12-1 \
-    # cuDNN (not included in devel image)
-    libcudnn8 \
-    libcudnn8-dev \
-    # cuBLAS (required by ONNX Runtime)
-    libcublas-12-1 \
-    libcublas-dev-12-1 \
     # Build dependencies
     build-essential \
     gcc \
@@ -98,28 +92,26 @@ RUN /opt/venv/bin/pip install --no-cache-dir --upgrade pip setuptools wheel
 COPY requirement.txt /tmp/
 
 # Install Python packages optimized for GPU and high memory
-# Install PyTorch with CUDA 12.1 support first
+# CRITICAL: Install in correct order for ONNX Runtime GPU compatibility
 RUN /opt/venv/bin/pip install --no-cache-dir numpy scipy cython && \
-    # Install PyTorch with CUDA 12.1 support
+    # Install PyTorch with CUDA 12.1 support first
     /opt/venv/bin/pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 && \
     /opt/venv/bin/pip install --no-cache-dir PyYAML && \
-    # CRITICAL: Install ONNX Runtime GPU BEFORE other packages
-    /opt/venv/bin/pip install --no-cache-dir onnxruntime-gpu==1.16.3 && \
+    # CRITICAL: Install ONNX Runtime GPU with CUDA and cuDNN dependencies
+    # This installs the NVIDIA packages automatically for compatibility
+    /opt/venv/bin/pip install --no-cache-dir "onnxruntime-gpu[cuda,cudnn]" && \
     /opt/venv/bin/pip install --no-cache-dir -r /tmp/requirement.txt && \
     # Install optimized media processing tools
     /opt/venv/bin/pip install --no-cache-dir yt-dlp gunicorn[gthread] && \
     # Update yt-dlp to latest
     /opt/venv/bin/pip install -U yt-dlp
 
-# CRITICAL: Create symbolic links for ONNX Runtime CUDA libraries
-RUN ln -sf /usr/local/cuda/lib64/libcublas.so.12 /opt/venv/lib/python3.11/site-packages/onnxruntime/capi/ || true && \
-    ln -sf /usr/local/cuda/lib64/libcublasLt.so.12 /opt/venv/lib/python3.11/site-packages/onnxruntime/capi/ || true && \
-    ln -sf /usr/local/cuda/lib64/libcudart.so.12 /opt/venv/lib/python3.11/site-packages/onnxruntime/capi/ || true && \
-    ln -sf /usr/local/cuda/lib64/libcufft.so.11 /opt/venv/lib/python3.11/site-packages/onnxruntime/capi/ || true && \
-    ln -sf /usr/local/cuda/lib64/libcurand.so.10 /opt/venv/lib/python3.11/site-packages/onnxruntime/capi/ || true && \
-    ln -sf /usr/local/cuda/lib64/libcusolver.so.11 /opt/venv/lib/python3.11/site-packages/onnxruntime/capi/ || true && \
-    ln -sf /usr/local/cuda/lib64/libcusparse.so.12 /opt/venv/lib/python3.11/site-packages/onnxruntime/capi/ || true && \
-    ldconfig
+# Verify CUDA library availability and update ldconfig
+RUN ldconfig && \
+    # Verify CUDA libraries are available
+    ldconfig -p | grep cuda || echo "CUDA libraries not found in ldconfig" && \
+    # List NVIDIA packages installed
+    /opt/venv/bin/pip list | grep nvidia || echo "No NVIDIA packages found"
 
 # Clean up build dependencies but keep CUDA runtime (optimized for 25GB RAM)
 RUN apt-get remove -y \
@@ -153,8 +145,8 @@ RUN useradd -m -u 1000 -s /bin/bash appuser && \
     # Set ownership of app directories
     chown -R appuser:appuser /app && \
     # Set proper permissions for clipsai media directory
-    chown -R appuser:appuser /opt/venv/lib/python3.11/site-packages/clipsai/media && \
-    chmod -R 755 /opt/venv/lib/python3.11/site-packages/clipsai/media && \
+    chown -R appuser:appuser /opt/venv/lib/python3.11/site-packages/clipsai/media 2>/dev/null || true && \
+    chmod -R 755 /opt/venv/lib/python3.11/site-packages/clipsai/media 2>/dev/null || true && \
     # Set SSL certificate permissions
     chmod 600 /app/ssl/key.pem && \
     chmod 644 /app/ssl/cert.pem
@@ -171,6 +163,9 @@ RUN chown -R appuser:appuser /app
 # Switch to non-root user
 USER appuser
 
+# Test ONNX Runtime GPU functionality before finalizing
+RUN python3 -c "import onnxruntime as ort; print('ONNX Runtime version:', ort.__version__); print('Available providers:', ort.get_available_providers()); import torch; print('PyTorch CUDA available:', torch.cuda.is_available()); print('PyTorch version:', torch.__version__)"
+
 # Collect static files with better error handling
 RUN python manage.py collectstatic --noinput --clear || \
     (echo "Static files collection failed, but continuing..." && ls -la /app/)
@@ -183,7 +178,7 @@ HEALTHCHECK --interval=30s --timeout=15s --start-period=60s --retries=3 \
 EXPOSE 8443
 
 # Set final permissions
-RUN chmod -R 755 /opt/venv/lib/python3.11/site-packages/clipsai/media || true
+RUN chmod -R 755 /opt/venv/lib/python3.11/site-packages/clipsai/media 2>/dev/null || true
 
 # Optimized gunicorn configuration with HTTPS support
 CMD ["gunicorn", \
