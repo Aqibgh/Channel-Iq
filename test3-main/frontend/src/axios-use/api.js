@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Configure Axios instance
 const apiClient = axios.create({
-  baseURL: 'https://213.192.2.109:40038/api/',
+  baseURL: 'https://channel-iq.nzxtsol.com:40134/api/',
   withCredentials: true, // Required for cookies
   headers: {
     'Content-Type': 'application/json',
@@ -57,7 +57,7 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('user');
       localStorage.removeItem('token');
-      window.location.href = '/login?session_expired=true';
+      window.location.href = '/';
     }
     return Promise.reject(error);
   }

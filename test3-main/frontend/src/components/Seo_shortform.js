@@ -46,7 +46,7 @@ function Seo_shortform({ videoThumbnail }) {
 
   // Check for YouTube authorization on component mount
   useEffect(() => {
-    const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
     setAuthToken(token);
     if (results?.final_processed?.s3_url) {
     }
@@ -341,84 +341,122 @@ const saveOptimizationDetails = async ({
   };
 
   const handleUploadToYouTube = async () => {
-    if (!user) {
+  if (!user) {
+    setUploadStatus({
+      success: false,
+      message: "You must be logged in to upload to YouTube"
+    });
+    return;
+  }
+
+  if (!authToken) {
+    setUploadStatus({
+      success: false,
+      message: "Authentication token not found. Please log in again."
+    });
+    return;
+  }
+
+  setUploading(true);
+  setUploadStatus(null);
+
+  try {
+    // Get the video URL
+    const videoUrl = getVideoUrl();
+    
+    if (!videoUrl) {
+      throw new Error("No video URL available for upload");
+    }
+    
+    // Create form data for file upload
+    const formData = new FormData();
+    
+    formData.append('video_url', videoUrl);
+    formData.append('title', results?.seo?.title || videoTitle || "My Video");
+    formData.append('description', results?.seo?.description || "");
+    formData.append('tags', results?.seo?.hashtags?.join(",") || "");
+    
+    if (selectedClip?.key) {
+      formData.append('s3_key', selectedClip.key);
+    }
+    
+    // Debug logging
+    console.log("Uploading video with URL:", videoUrl);
+    console.log("Form data:", {
+      video_url: videoUrl,
+      title: results?.seo?.title || videoTitle || "My Video",
+      description: results?.seo?.description || "",
+      tags: results?.seo?.hashtags?.join(",") || "",
+      s3_key: selectedClip?.key || "N/A"
+    });
+    
+    // Make the API request to upload the video
+    const uploadResponse = await apiClient.post('/youtube/upload/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 300000, // 5 minutes timeout for large file uploads
+    });
+    
+    const data = uploadResponse.data;
+    
+    if (data.success) {
+      setUploadStatus({
+        success: true,
+        message: `Video uploaded successfully! Video ID: ${data.video_id}`,
+        videoId: data.video_id
+      });
+    } else {
       setUploadStatus({
         success: false,
-        message: "You must be logged in to upload to YouTube"
+        message: data.error || "Failed to upload video"
       });
-      return;
     }
-  
-    if (!authToken) {
-      setUploadStatus({
-        success: false,
-        message: "Authentication token not found. Please log in again."
-      });
-      return;
-    }
-  
-    setUploading(true);
-    setUploadStatus(null);
-  
-    try {
-      // Get the video URL
-      const videoUrl = getVideoUrl();
+  } catch (error) {
+    console.error("Upload error:", error);
+    
+    // Handle different types of errors
+    if (error.response) {
+      // Server responded with error status
+      const { status, data } = error.response;
       
-      // Create form data for file upload
-      const formData = new FormData();
-      
-      formData.append('video_url', videoUrl);
-      formData.append('title', results?.seo?.title || "My Video");
-      formData.append('description', results?.seo?.description || "");
-      formData.append('tags', results?.seo?.hashtags?.join(",") || "");
-      
-      if (selectedClip?.key) {
-        formData.append('s3_key', selectedClip.key);
-      }
-      
-      
-      // Make the API request to upload the video
-      const uploadResponse = await apiClient.post('/youtube/upload/', formData);
-      
-      const data = await uploadResponse.data;
-      
-      // Check if we need to re-authorize YouTube
-      if (!uploadResponse.ok) {
-        if (uploadResponse.status === 401 && data.needs_auth) {
-          // YouTube auth needs renewal
-          setHasYoutubeAuth(false);
-          setUploadStatus({
-            success: false,
-            message: data.detail || "Your YouTube authorization has expired. Please reconnect your YouTube account.",
-            needsAuth: true
-          });
-          return;
-        }
-        throw new Error(`Upload failed with status: ${uploadResponse.status} ${uploadResponse.statusText}`);
-      }
-      
-      if (data.success) {
+      if (status === 401 && data?.needs_auth) {
+        // YouTube auth needs renewal
+        setHasYoutubeAuth(false);
         setUploadStatus({
-          success: true,
-          message: `Video uploaded successfully! Video ID: ${data.video_id}`,
-          videoId: data.video_id
+          success: false,
+          message: data.detail || "Your YouTube authorization has expired. Please reconnect your YouTube account.",
+          needsAuth: true
+        });
+      } else if (status === 400) {
+        // Bad request - likely missing or invalid data
+        setUploadStatus({
+          success: false,
+          message: data?.error || "Invalid request. Please check your video data and try again."
         });
       } else {
         setUploadStatus({
           success: false,
-          message: data.error || "Failed to upload video"
+          message: data?.error || `Upload failed with status: ${status}`
         });
       }
-    } catch (error) {
-      console.error("Upload error:", error);
+    } else if (error.request) {
+      // Network error
+      setUploadStatus({
+        success: false,
+        message: "Network error. Please check your connection and try again."
+      });
+    } else {
+      // Other error
       setUploadStatus({
         success: false,
         message: `An error occurred during upload: ${error.message}`
       });
-    } finally {
-      setUploading(false);
     }
-  };
+  } finally {
+    setUploading(false);
+  }
+};
 
    // Handle copy functionality for SEO data
    const handleCopy = (text) => {

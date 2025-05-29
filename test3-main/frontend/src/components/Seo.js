@@ -52,84 +52,129 @@ function SEO({ videoThumbnail }) {
     ));
   };
   const handleUploadToYouTube = async () => {
-    if (!user) {
+  if (!user) {
+    setUploadStatus({
+      success: false,
+      message: "You must be logged in to upload to YouTube"
+    });
+    return;
+  }
+
+  if (!authToken) {
+    setUploadStatus({
+      success: false,
+      message: "Authentication token not found. Please log in again."
+    });
+    return;
+  }
+
+  setUploading(true);
+  setUploadStatus(null);
+
+  try {
+    // Get the video URL
+    const videoUrl = getVideoUrl();
+    
+    // Check if we have a valid video URL
+    if (!videoUrl) {
       setUploadStatus({
         success: false,
-        message: "You must be logged in to upload to YouTube"
+        message: "No video found to upload. Please ensure your video was processed successfully."
       });
+      setUploading(false);
       return;
     }
-  
-    if (!authToken) {
-      setUploadStatus({
-        success: false,
-        message: "Authentication token not found. Please log in again."
-      });
-      return;
+    
+    // ✅ FIXED: Send as JSON instead of FormData (same as handleUpdateSEO)
+    const requestData = {
+      video_url: videoUrl,
+      title: title || "My Video",
+      description: description || "",
+      tags: tags || ""
+    };
+    
+    if (results?.s3_upload?.key) {
+      requestData.s3_key = results.s3_upload.key;
     }
-  
-    setUploading(true);
-    setUploadStatus(null);
-  
-    try {
-      // Get the video URL
-      const videoUrl = getVideoUrl();
-      
-      // Create form data for file upload
-      const formData = new FormData();
-      
-      formData.append('video_url', videoUrl);
-      formData.append('title', title || "My Video");
-      formData.append('description', description || "");
-      formData.append('tags', tags || "");
-      
-      if (results?.s3_upload?.key) {
-        formData.append('s3_key', results.s3_upload.key);
+    
+    // Debug logs
+    console.log("Request data:", requestData);
+    
+    // ✅ FIXED: Send as JSON with proper headers (same as handleUpdateSEO)
+    const uploadResponse = await apiClient.post('/youtube/upload/', requestData, {
+      headers: {
+        Authorization: `Token ${authToken}`,
+        'Content-Type': 'application/json',
       }
-      
-      
-      // Make the API request to upload the video
-      const uploadResponse = await apiClient.post('/youtube/upload/', formData);
-      
-      const data = await uploadResponse.json();
-      
-      // Check if we need to re-authorize YouTube
-      if (!uploadResponse.ok) {
-        if (uploadResponse.status === 401 && data.needs_auth) {
-          // YouTube auth needs renewal
-          setHasYoutubeAuth(false);
-          setUploadStatus({
-            success: false,
-            message: data.detail || "Your YouTube authorization has expired. Please reconnect your YouTube account.",
-            needsAuth: true
-          });
-          return;
-        }
-        throw new Error(`Upload failed with status: ${uploadResponse.status} ${uploadResponse.statusText}`);
-      }
-      
-      if (data.success) {
+    });
+    
+    // Access data directly from axios response
+    const data = uploadResponse.data;
+    
+    // Check if the request was successful
+    if (uploadResponse.status !== 200) {
+      if (uploadResponse.status === 401 && data.needs_auth) {
+        // YouTube auth needs renewal
+        setHasYoutubeAuth(false);
         setUploadStatus({
-          success: true,
-          message: `Video uploaded successfully! Video ID: ${data.video_id}`,
-          videoId: data.video_id
+          success: false,
+          message: data.detail || "Your YouTube authorization has expired. Please reconnect your YouTube account.",
+          needsAuth: true
+        });
+        return;
+      }
+      throw new Error(`Upload failed with status: ${uploadResponse.status} ${uploadResponse.statusText}`);
+    }
+    
+    if (data.success) {
+      setUploadStatus({
+        success: true,
+        message: `Video uploaded successfully! Video ID: ${data.video_id}`,
+        videoId: data.video_id
+      });
+    } else {
+      setUploadStatus({
+        success: false,
+        message: data.error || "Failed to upload video"
+      });
+    }
+  } catch (error) {
+    console.error("Upload error:", error);
+    
+    // Handle axios error responses
+    if (error.response) {
+      const { status, data } = error.response;
+      
+      if (status === 401 && data.needs_auth) {
+        setHasYoutubeAuth(false);
+        setUploadStatus({
+          success: false,
+          message: data.detail || "Your YouTube authorization has expired. Please reconnect your YouTube account.",
+          needsAuth: true
+        });
+      } else if (status === 400) {
+        setUploadStatus({
+          success: false,
+          message: data.error || "Bad request. Please check your video data and try again."
         });
       } else {
         setUploadStatus({
           success: false,
-          message: data.error || "Failed to upload video"
+          message: data.error || `Upload failed with status: ${status}`
         });
       }
-    } catch (error) {
-      console.error("Upload error:", error);
+    } else {
       setUploadStatus({
         success: false,
         message: `An error occurred during upload: ${error.message}`
       });
-    } finally {
-      setUploading(false);
     }
-  };
+  } finally {
+    setUploading(false);
+  }
+};
+
+
   // ✅ Firebase function to save SEO data
   const saveDataToDB = async (user, locationState) => {
     if (!user) {
@@ -260,7 +305,7 @@ function SEO({ videoThumbnail }) {
 
   // Check for YouTube authorization on component mount
   useEffect(() => {
-    const token = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
     setAuthToken(token);
     
     // Check if user has YouTube authorization
@@ -506,148 +551,154 @@ function SEO({ videoThumbnail }) {
   };
 
   const handleUpdateSEO = async () => {
-    if (!user) {
-      setUploadStatus({
-        success: false,
-        message: "You must be logged in to update YouTube SEO"
-      });
-      return;
-    }
+  console.log("Starting SEO update with videoURL:", videoURL);
   
-    if (!authToken) {
-      setUploadStatus({
-        success: false,
-        message: "Authentication token not found. Please log in again."
-      });
-      return;
-    }
-  
-    if (!hasYoutubeAuth) {
-      setUploadStatus({
-        success: false,
-        message: "You need to connect your YouTube account first"
-      });
-      return;
-    }
-  
-    // Check if we have a valid video URL
-    if (!videoURL || !videoURL.includes("youtube.com")) {
-      setUploadStatus({
-        success: false,
-        message: "This feature only works with YouTube videos"
-      });
-      return;
-    }
-  
-    setUploading(true);
-    setUploadStatus(null);
-  
-    try {
-      // Extract video ID from URL
-      let videoId = "";
-      if (videoURL.includes("v=")) {
-        videoId = videoURL.split("v=")[1].split("&")[0];
-      } else if (videoURL.includes("youtu.be/")) {
-        videoId = videoURL.split("youtu.be/")[1].split("?")[0];
+  if (!user) {
+    setUploadStatus({
+      success: false,
+      message: "You must be logged in to update YouTube SEO"
+    });
+    return;
+  }
+
+  if (!authToken) {
+    setUploadStatus({
+      success: false,
+      message: "Authentication token not found. Please log in again."
+    });
+    return;
+  }
+
+  if (!hasYoutubeAuth) {
+    setUploadStatus({
+      success: false,
+      message: "You need to connect your YouTube account first"
+    });
+    return;
+  }
+
+  // Check if we have a valid video URL
+  if (!videoURL || (!videoURL.includes("youtube.com") && !videoURL.includes("youtu.be"))) {
+    setUploadStatus({
+      success: false,
+      message: "This feature only works with YouTube videos"
+    });
+    return;
+  }
+
+  setUploading(true);
+  setUploadStatus(null);
+
+  try {
+    // Extract video ID from URL - handle multiple YouTube URL formats
+    let videoId = "";
+    
+    // Handle different YouTube URL formats
+    if (videoURL.includes("youtube.com/watch?v=")) {
+      videoId = videoURL.split("v=")[1].split("&")[0];
+    } else if (videoURL.includes("youtu.be/")) {
+      videoId = videoURL.split("youtu.be/")[1].split("?")[0].split("&")[0];
+    } else if (videoURL.includes("youtube.com/embed/")) {
+      videoId = videoURL.split("embed/")[1].split("?")[0].split("&")[0];
+    } else if (videoURL.includes("youtube.com/v/")) {
+      videoId = videoURL.split("v/")[1].split("?")[0].split("&")[0];
+    } else {
+      // Try to find video ID with regex as fallback
+      const match = videoURL.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+      if (match) {
+        videoId = match[1];
       }
-  
-      if (!videoId) {
-        throw new Error("Could not extract video ID from URL");
+    }
+
+    if (!videoId || videoId.length !== 11) {
+      throw new Error("Could not extract valid video ID from URL. Please check the YouTube URL format.");
+    }
+
+    console.log("Extracted video ID:", videoId);
+
+    // ✅ FIXED: Send as JSON instead of FormData
+    const requestData = {
+      video_id: videoId,
+      title: seoData.title || title,
+      description: seoData.description || description,
+      tags: seoData.tags 
+        ? (Array.isArray(seoData.tags) ? seoData.tags.join(",") : seoData.tags)
+        : ""
+    };
+
+    // Debug logs
+    console.log("Request data:", requestData);
+
+    // ✅ FIXED: Send as JSON with proper headers
+    const updateResponse = await apiClient.post('/youtube/update-seo/', requestData, {
+      headers: {
+        Authorization: `Token ${authToken}`,
+        'Content-Type': 'application/json',
       }
-  
-      // Create form data with updated SEO info
-      const formData = new FormData();
-      formData.append("video_id", videoId);
-      formData.append("title", seoData.title || title);
-      formData.append("description", seoData.description || description);
-      formData.append("tags", seoData.tags?.join(",") || "");
-  
-      // Make API call to update video metadata
-      const updateResponse = await apiClient.post('/youtube/update-seo/', formData);
+    });
+
+    const data = updateResponse.data;
+
+    if (data.success) {
+      setUploadStatus({
+        success: true,
+        message: "Video SEO updated successfully!"
+      });
       
-      // Handle different response status codes
-      if (updateResponse.status === 403) {
-        // Handle ownership error
-        const errorData = await updateResponse.json();
+      // After successful YouTube update, update component state
+      setSeoMessage("SEO data updated successfully on YouTube!");
+    } else {
+      setUploadStatus({
+        success: false,
+        message: data.error || "Failed to update video SEO"
+      });
+    }
+  } catch (error) {
+    console.error("Update error:", error);
+    
+    // Handle specific error responses
+    if (error.response) {
+      const { status, data } = error.response;
+      
+      if (status === 403) {
         setUploadStatus({
           success: false,
-          message: errorData.error || "You can only update SEO for videos you own"
+          message: data.error || "You can only update SEO for videos you own"
         });
-        return;
-      } else if (updateResponse.status === 500) {
-        // Check if the error might be related to token expiration
-        const errorData = await updateResponse.text();
-        if (errorData.includes("invalid_grant") || errorData.includes("token expired") || errorData.includes("Token has been expired or revoked")) {
-          // Token has expired, we need to re-authenticate
-          setHasYoutubeAuth(false);
-          setUploadStatus({
-            success: false,
-            message: "Your YouTube authorization has expired. Please reconnect your YouTube account.",
-            needsAuth: true
-          });
-          return;
-        } else {
-          throw new Error("Server error occurred while updating SEO");
-        }
-      } else if (!updateResponse.ok) {
-        const data = await updateResponse.json();
-        
-        // Check if we need to re-authorize YouTube
-        if (updateResponse.status === 401 && data.needs_auth) {
-          // YouTube auth needs renewal
-          setHasYoutubeAuth(false);
-          setUploadStatus({
-            success: false,
-            message: data.detail || "Your YouTube authorization has expired. Please reconnect your YouTube account.",
-            needsAuth: true
-          });
-          return;
-        }
-        
-        throw new Error(`Update failed with status: ${updateResponse.status} ${updateResponse.statusText}`);
-      }
-  
-      const data = await updateResponse.json();
-  
-      if (data.success) {
-        setUploadStatus({
-          success: true,
-          message: "Video SEO updated successfully!"
-        });
-        
-        // After successful YouTube update, update component state
-        setSeoMessage("SEO data updated successfully on YouTube!");
-      } else {
-        setUploadStatus({
-          success: false,
-          message: data.error || "Failed to update video SEO"
-        });
-      }
-    } catch (error) {
-      console.error("Update error:", error);
-      
-      // Check if error message contains token expiration indicators
-      if (error.message && (
-          error.message.includes("invalid_grant") || 
-          error.message.includes("token expired") || 
-          error.message.includes("Token has been expired or revoked"))) {
+      } else if (status === 401 && data.needs_auth) {
         setHasYoutubeAuth(false);
         setUploadStatus({
           success: false,
-          message: "Your YouTube authorization has expired. Please reconnect your YouTube account.",
+          message: data.error || "Your YouTube authorization has expired. Please reconnect your YouTube account.",
           needsAuth: true
+        });
+      } else if (status === 404) {
+        setUploadStatus({
+          success: false,
+          message: "Video not found or not accessible"
+        });
+      } else if (status === 400) {
+        setUploadStatus({
+          success: false,
+          message: data.error || "Invalid request. Please check your video URL and try again."
         });
       } else {
         setUploadStatus({
           success: false,
-          message: `An error occurred during update: ${error.message}`
+          message: data.error || `Request failed with status ${status}`
         });
       }
-    } finally {
-      setUploading(false);
+    } else {
+      // Network or other errors
+      setUploadStatus({
+        success: false,
+        message: `An error occurred during update: ${error.message}`
+      });
     }
-  };
-
+  } finally {
+    setUploading(false);
+  }
+};
   return (
     <div className="seo-app">
       {/* Navbar with User Session */}

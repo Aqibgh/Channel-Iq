@@ -6,7 +6,7 @@ from transformers import pipeline
 from youtube_transcript_api import YouTubeTranscriptApi
 import openai
 
-
+import tempfile
 def extract_video_id(video_url):
     """Extract Video ID from a YouTube URL."""
     parsed_url = urlparse(video_url)
@@ -25,6 +25,7 @@ def fetch_transcript(video_url, video_id, youtube_api_key):
         return " ".join([seg["text"] for seg in transcript])
     except Exception:
         # Fallback to Whisper transcription
+
         with tempfile.TemporaryDirectory() as temp_dir:
             audio_file = os.path.join(temp_dir, "audio.mp3")
 
