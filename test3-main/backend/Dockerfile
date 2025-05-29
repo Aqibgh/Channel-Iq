@@ -27,7 +27,11 @@ ENV DEBIAN_FRONTEND=noninteractive \
     # OMP optimization for 9 vCPU
     OMP_NUM_THREADS=9 \
     MKL_NUM_THREADS=9 \
-    OPENBLAS_NUM_THREADS=9
+    OPENBLAS_NUM_THREADS=9 \
+    # CRITICAL: ONNX Runtime CUDA library path
+    LD_LIBRARY_PATH="/usr/local/cuda/lib64:/opt/venv/lib/python3.11/site-packages/onnxruntime/capi:$LD_LIBRARY_PATH" \
+    CUDA_HOME="/usr/local/cuda" \
+    CUDA_ROOT="/usr/local/cuda"
 
 # Install Python 3.11 and system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -39,9 +43,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3.11-dev \
     python3.11-venv \
     python3.11-distutils \
+    # CUDA runtime libraries (CRITICAL for ONNX Runtime)
+    cuda-runtime-12-1 \
+    cuda-libraries-12-1 \
+    cuda-libraries-dev-12-1 \
     # cuDNN (not included in devel image)
     libcudnn8 \
     libcudnn8-dev \
+    # cuBLAS (required by ONNX Runtime)
+    libcublas-12-1 \
+    libcublas-dev-12-1 \
     # Build dependencies
     build-essential \
     gcc \
@@ -92,11 +103,24 @@ RUN /opt/venv/bin/pip install --no-cache-dir numpy scipy cython && \
     # Install PyTorch with CUDA 12.1 support
     /opt/venv/bin/pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 && \
     /opt/venv/bin/pip install --no-cache-dir PyYAML && \
+    # CRITICAL: Install ONNX Runtime GPU BEFORE other packages
+    /opt/venv/bin/pip install --no-cache-dir onnxruntime-gpu==1.16.3 && \
     /opt/venv/bin/pip install --no-cache-dir -r /tmp/requirement.txt && \
     # Install optimized media processing tools
     /opt/venv/bin/pip install --no-cache-dir yt-dlp gunicorn[gthread] && \
     # Update yt-dlp to latest
     /opt/venv/bin/pip install -U yt-dlp
+
+# CRITICAL: Create symbolic links for ONNX Runtime CUDA libraries
+RUN ln -sf /usr/local/cuda/lib64/libcublas.so.12 /opt/venv/lib/python3.11/site-packages/onnxruntime/capi/ || true && \
+    ln -sf /usr/local/cuda/lib64/libcublasLt.so.12 /opt/venv/lib/python3.11/site-packages/onnxruntime/capi/ || true && \
+    ln -sf /usr/local/cuda/lib64/libcudart.so.12 /opt/venv/lib/python3.11/site-packages/onnxruntime/capi/ || true && \
+    ln -sf /usr/local/cuda/lib64/libcufft.so.11 /opt/venv/lib/python3.11/site-packages/onnxruntime/capi/ || true && \
+    ln -sf /usr/local/cuda/lib64/libcurand.so.10 /opt/venv/lib/python3.11/site-packages/onnxruntime/capi/ || true && \
+    ln -sf /usr/local/cuda/lib64/libcusolver.so.11 /opt/venv/lib/python3.11/site-packages/onnxruntime/capi/ || true && \
+    ln -sf /usr/local/cuda/lib64/libcusparse.so.12 /opt/venv/lib/python3.11/site-packages/onnxruntime/capi/ || true && \
+    ldconfig
+
 # Clean up build dependencies but keep CUDA runtime (optimized for 25GB RAM)
 RUN apt-get remove -y \
     build-essential \
