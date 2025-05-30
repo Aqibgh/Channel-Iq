@@ -8,12 +8,13 @@ import { db } from "../Firebase";  // Import Firebase Firestore
 import { getDocs,setDoc,collection, addDoc, updateDoc, doc,serverTimestamp} from "firebase/firestore";
 import {  query, where } from "firebase/firestore";
 import { v4 as uuidv4 } from "uuid"; // Import UUID for unique IDs
-
+import './header.css'; 
 import VideoDashboard from "./videoDashboard";
 
 
 function Clipper() {
   const { user, logout } = useContext(UserContext);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [videoURL, setVideoURL] = useState("");
   const [videoData, setVideoData] = useState(null);
   const [loading, setLoading] = useState(false); // Initialize loading as false
@@ -38,7 +39,70 @@ function Clipper() {
   const [isProcessingVideo, setIsProcessingVideo] = useState(false); // Consider merging with 'processing'
   const navigate = useNavigate();
 
+  // YouTube URL formatting functions
+  const extractVideoId = (url) => {
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/,
+      /(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+      /(?:youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+      /(?:youtube\.com\/watch\?.*v=)([a-zA-Z0-9_-]{11})/,
+      /(?:m\.youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/,
+      /(?:www\.youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/,
+    ];
+
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        return match[1];
+      }
+    }
+    return null;
+  };
+
+  const formatYouTubeURL = (inputURL) => {
+    if (!inputURL || typeof inputURL !== 'string') {
+      return null;
+    }
+
+    let cleanURL = inputURL.trim();
     
+    if (!cleanURL.startsWith('http://') && !cleanURL.startsWith('https://')) {
+      cleanURL = 'https://' + cleanURL;
+    }
+
+    const videoId = extractVideoId(cleanURL);
+    
+    if (!videoId) {
+      return null;
+    }
+
+    return `https://www.youtube.com/watch?v=${videoId}`;
+  };
+
+  const validateYouTubeURL = (url) => {
+    if (!url || typeof url !== 'string') {
+      return { isValid: false, error: "Please enter a valid YouTube URL." };
+    }
+
+    const cleanURL = url.trim();
+    
+    // Reject shorts and live videos
+    if (cleanURL.includes('/shorts/')) {
+      return { isValid: false, error: "YouTube Shorts are not supported. Please use long-form videos only." };
+    }
+
+    if (cleanURL.includes('/live/')) {
+      return { isValid: false, error: "Live videos are not supported. Please use regular YouTube videos." };
+    }
+
+    const formattedURL = formatYouTubeURL(cleanURL);
+    
+    if (!formattedURL) {
+      return { isValid: false, error: "Invalid YouTube URL format. Please check and try again." };
+    }
+
+    return { isValid: true, formattedURL };
+  };
 
     
     const saveOriginalVideoToDB = async (videoTitle, s3Url, videoURL, localVideoPath, thumbnailUrl) => {
@@ -97,20 +161,26 @@ function Clipper() {
         return;
       }
     
-      // YouTube URL validation
-      const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube|youtu|youtube-nocookie)\.(com|be)\/(watch\?v=|embed\/|v\/|shorts\/|live\/)[a-zA-Z0-9-_]+(&[a-zA-Z0-9=&]*)?$/;
-      if (!youtubeRegex.test(videoURL)) {
-        setError("❌ Invalid YouTube URL format. Please check and try again.");
+      // Validate and format YouTube URL
+      const validation = validateYouTubeURL(videoURL);
+      
+      if (!validation.isValid) {
+        setError(`❌ ${validation.error}`);
         setLoading(false);
         setIsProcessingVideo(false);
         return;
       }
+
+      // Use the formatted URL for processing
+      const formattedURL = validation.formattedURL;
+      console.log(`Original URL: ${videoURL}`);
+      console.log(`Formatted URL: ${formattedURL}`);
     
       try {
         // 1. Metadata Fetch Errors
         let data;
         try {
-          data = await fetchVideoMetadata(videoURL);
+          data = await fetchVideoMetadata(formattedURL); // Use formatted URL
           if (!data || !data.title || !data.thumbnail) {
             throw new Error("Invalid metadata response from server");
           }
@@ -143,7 +213,7 @@ function Clipper() {
         let downloadResponse;
         // In the Download & Upload Errors section of handleFetch function
 try {
-  downloadResponse = await downloadAndUploadVideo(videoURL);
+  downloadResponse = await downloadAndUploadVideo(formattedURL); // Use formatted URL
   
   if (!downloadResponse?.url || !downloadResponse?.local_path) {
     throw new Error("Invalid download response");
@@ -206,7 +276,7 @@ try {
           await saveOriginalVideoToDB(
             data.title,
             s3Url,
-            videoURL,
+            formattedURL, // Use formatted URL for saving
             localPath,
             data.thumbnail
           );
@@ -244,7 +314,12 @@ try {
         } catch (resError) {
           console.warn("Resolution Check Warning:", resError);
           // Non-critical failure - just log
-        }        // Success case - set default optimization type to Long Form
+        }        
+
+        // Update the videoURL state to the formatted version
+        setVideoURL(formattedURL);
+
+        // Success case - set default optimization type to Long Form
         setShowSuccessModal(true);
         setVideoData(data);
         setOptimizationType("Long Form");
@@ -613,7 +688,7 @@ try {
             <div className="success-modal">
               <div className="success-icon">✅</div>
               <h3>You're good to go</h3>
-              <p>Your video is saved to the cloud.</p>
+              <p>Your video is saved to the cloud.</p>
               <button 
                 className="modal-close-btn"
                 onClick={() => setShowSuccessModal(false)}
@@ -627,274 +702,339 @@ try {
     
 
       return (
-        <>
-          {/* Header */}
-          <header className="dashboard-header">
-            <div className="logo-container" onClick={() => navigate("/")}>
-              <h1 className="logo">
-                <span className="logo-bold">Channel-</span>
-                <span className="logo-highlight">IQ</span>
-              </h1>
-            </div>
+  <>
+    {/* Header */}
+    <header className="homepage-header">
+      {/* Left Section - Logo */}
+      <div className="homepage-header-left">
+        {/* Desktop Logo */}
+        <div className="homepage-logo-container desktop-only" onClick={() => navigate("/")}>
+          <h1 className="homepage-logo">
+            <span className="homepage-logo-bold">Channel-</span>
+            <span className="homepage-logo-highlight">IQ</span>
+          </h1>
+        </div>
 
-            <div className="header-right">
+        {/* Mobile Login - Hidden on desktop */}
+        <div className="mobile-only">
+          {user ? (
+            <div className="homepage-user-profile">
+              <img src={user.picture} alt="User" className="homepage-user-avatar" />
+              <button className="homepage-logout-button" onClick={logout}>Logout</button>
+            </div>
+          ) : (
+            <button className="homepage-login-button" onClick={() => navigate("/login")}>
+              Login
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Mobile Logo - Center section only for mobile */}
+      <div className="homepage-center">
+        <div className="mobile-only homepage-logo-container" onClick={() => navigate("/")}>
+          <h1 className="homepage-logo">
+            <span className="homepage-logo-bold">Channel-</span>
+            <span className="homepage-logo-highlight">IQ</span>
+          </h1>
+        </div>
+      </div>
+
+      {/* Right Section - Navigation, Profile and mobile hamburger */}
+      <div className="homepage-header-right">
+        {/* Desktop Navigation */}
+        <nav className="homepage-nav desktop-only">
+          <a href="/terms">Terms & Services</a>
+          <a href="/videos">Videos</a>
+        </nav>
+        
+        {/* Desktop Profile */}
+        <div className="desktop-only">
+          {user ? (
+            <div className="homepage-user-profile">
+              <img src={user.picture} alt="User" className="homepage-user-avatar" />
+              <span className="homepage-username">{user.name}</span>
+              <button className="homepage-logout-button" onClick={logout}>Logout</button>
+            </div>
+          ) : (
+            <button className="homepage-login-button" onClick={() => navigate("/login")}>
+              Login
+            </button>
+          )}
+        </div>
+
+        {/* Mobile Hamburger Menu */}
+        <div className="homepage-hamburger-menu">
+          <button 
+            className="homepage-hamburger-button"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            aria-label="Toggle menu"
+          >
+            <span className="homepage-hamburger-icon">☰</span>
+          </button>
+          
+          {isMenuOpen && (
+            <div className="homepage-menu-dropdown">
               <a 
-                className="nav-link" 
+                className="homepage-menu-item" 
                 href="/terms"
-                style={{ marginRight: '1rem', textDecoration: 'none', color: 'var(--color-text)', fontWeight: 500 }}
+                onClick={() => setIsMenuOpen(false)}
               >
                 Terms & Services
               </a>
               <a 
-                className="nav-link" 
+                className="homepage-menu-item" 
                 href="/videos"
-                style={{ marginRight: '1rem', textDecoration: 'none', color: 'var(--color-text)', fontWeight: 500 }}
+                onClick={() => setIsMenuOpen(false)}
               >
                 Videos
               </a>
-
-              {user ? (
-                <div className="user-profile">
-                  <img src={user.picture} alt="User" className="user-avatar" />
-                  <span className="username">{user.name}</span>
-                  <button className="logout-button" onClick={logout}>Logout</button>
-                </div>
-              ) : (
-                <button className="login-button" onClick={() => navigate("/login")}>
-                  Login
-                </button>
-              )}
             </div>
-          </header>
+          )}
+        </div>
+      </div>
+    </header>
 
-          <div className="clipper-wrapper">
-            <div className="clipper-container">
-              {/* Title */}
-              <div className="app-title">
-                <h1>
-                  <span className="channel">Channel</span>
-                  <span className="iq">IQ</span>
-                </h1>
-              </div>
-      
-              <div className="url-input-container">
-  <input
-    type="text"
-    placeholder="Enter YouTube Video URL"
-    value={videoURL}
-    onChange={(e) => setVideoURL(e.target.value)}
-    className="input"
-    disabled={loading || isProcessingVideo}
-  />
-  <button
-    onClick={handleFetch}
-    disabled={loading || isProcessingVideo || !videoURL || generatingReport || processing}
-    className="fetch-btn"
-  >
-    {loading ? (
-      <span className="loading-spinner">
-        <span className="spinner-dot"></span>
-        <span className="spinner-dot"></span>
-        <span className="spinner-dot"></span>
-      </span>
-    ) : (
-      "Fetch"
-    )}
-  </button>
-</div>
+    <div className="clipper-wrapper">
+      <div className="clipper-container">
+        {/* Title */}
+        <div className="app-title">
+          <h1>
+            <span className="channel">Channel</span>
+            <span className="iq">IQ</span>
+          </h1>
+        </div>
 
-{/* Error Message Display */}
-{error && (
-  <div className="error-notification">
-    <div className="error-message">
-      {error}
-      <button className="close-error" onClick={() => setError(null)}>×</button>
-    </div>
-  </div>
-)}
-      
-              {/* Processing Overlay */}
-              {isProcessingVideo && !videoData && (
-                <div className="processing-overlay">
-                  <div className="processing-content">
-                    <div className="processing-spinner">
-                      <div className="spinner-ring"></div>
-                    </div>
-                    <h3>Processing...</h3>
-                    <p>Saving your video to the cloud ⏳</p>
-                  </div>
-                </div>
-              )}
-      
-              {/* Main Content */}
-              {!isProcessingVideo && (
-                <div className="main-content-container">
-                  {/* Video and Settings Wrapper */}
-                  {videoData ? (
-                    <div className="video-settings-wrapper">
-                      <div className="video-settings-content">
-                        {/* Video Preview Container */}
-                        <div className="video-preview-container visible">
-                          <div className="video-data-container">
-                            <div className="video-section">
-                              <h3 className="section-heading">Thumbnail:</h3>
-                              <div className="video-thumbnail-container">
-                                <img
-                                  src={videoData.thumbnail}
-                                  alt="Video Thumbnail"
-                                  className="video-thumbnail"
-                                />
-                              </div>
-                            </div>
-                            <div className="video-section">
-                              <h3 className="section-heading">Title:</h3>
-                              <div className="video-title-container">
-                                <h4 className="video-title" title={videoData.title}>
-                                  {videoData.title}
-                                </h4>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-      
-                        {/* Settings Container */}
-                        <div className="settings-container">
-                          <div className="optimization-type">
-                            <h3>Choose Optimization Type:</h3>
-                            <div className="optimization-buttons">
-                              {["Long Form", "Short Form"].map((type) => (
-                                <button
-                                  key={type}
-                                  className={`btn ${
-                                    optimizationType === type ? "btn--primary" : "btn--outline"
-                                  }`}
-                                  onClick={() => handleOptimizationTypeChange(type)}
-                                >
-                                  {type}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-      
-                          {optimizationType === "Long Form" && (
-                            <div className="features">
-                              <h3>Select Features:</h3>
-                              <div className="feature-buttons">
-                                {["Noise Reduction", "Video Quality", "SEO"].map((feature) => (
-                                  <button
-                                    key={feature}
-                                    className={`feature-btn ${
-                                      selectedFeatures.includes(feature) ? "active" : ""
-                                    }`}
-                                    onClick={() => handleFeatureToggle(feature)}
-                                  >
-                                    <div className="feature-icon">{featureIcons[feature]}</div>
-                                    <span>{feature}</span>
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-      
-                          {optimizationType === "Short Form" && (
-                            <div className="short-form-options">
-                              <div className="dropdown-container form-control">
-                                <label htmlFor="clipLength">Clip Length:</label>
-                                <select
-                                  id="clipLength"
-                                  value={clipLength}
-                                  onChange={(e) => setClipLength(e.target.value)}
-                                  className="input"
-                                >
-                                  <option value="30">30 seconds</option>
-                                  <option value="60">60 seconds</option>
-                                  <option value="90">90 seconds</option>\
-                                  <option value="Auto">Auto</option>
-                                </select>
-                              </div>
-                              <div className="clip-count-container form-control">
-                    <label htmlFor="clipCount">Number of Clips (1-3):</label>
-                    <select
-                      id="clipCount"
-                      value={clipCount}
-                      onChange={(e) => setClipCount(parseInt(e.target.value))}
-                      className="select"
-                    >
-                      <option value={1}>1</option>
-                      <option value={2}>2</option>
-                      <option value={3}>3</option>
-                    </select>
-                  </div>
+        <div className="url-input-container">
+          <input
+            type="text"
+            placeholder="Enter YouTube Video URL (e.g., https://www.youtube.com/watch?v=Ip63Ctf8B7k)"
+            value={videoURL}
+            onChange={(e) => setVideoURL(e.target.value)}
+            className="input"
+            disabled={loading || isProcessingVideo}
+          />
+          <button
+            onClick={handleFetch}
+            disabled={loading || isProcessingVideo || !videoURL || generatingReport || processing}
+            className="fetch-btn"
+          >
+            {loading ? (
+              <span className="loading-spinner">
+                <span className="spinner-dot"></span>
+                <span className="spinner-dot"></span>
+                <span className="spinner-dot"></span>
+              </span>
+            ) : (
+              "Fetch"
+            )}
+          </button>
+        </div>
 
-                            </div>
-                          )}
-                        </div>
-                      </div>
-      
-<div className="action-buttons-container">
-  <div className="button-container">
-    
+        {/* URL Format Helper */}
+        {videoURL && !loading && !videoData && (
+          <div className="url-helper">
+            <p className="helper-text">
+              ℹ️ Supported formats: Regular YouTube videos only (no Shorts or Live streams)
+            </p>
+          </div>
+        )}
 
-    
-
-    <button
-      onClick={handleGenerateReport}
-      disabled={generatingReport || !videoData || processing}
-      className="btn btn--secondary generate-report-btn"
-    >
-      {generatingReport ? (
-        <span className="loading-text">Analyzing...</span>
-      ) : (
-        "Get Report"
-      )}
-    </button>
-    <button
-      onClick={handleGenerateClick}
-      disabled={processing || !videoData || generatingReport}
-      className="btn btn--primary generate-btn"
-    >
-      {processing ? (
-        <span className="loading-text">Processing...</span>
-      ) : (
-        "Generate"
-      )}
-    </button>
-
-    <button
-      onClick={() => setShowDashboard(!showDashboard)}
-      className="btn btn--outline show-dashboard-btn"
-    >
-      {showDashboard ? "Hide Videos" : "Show Videos"}
-    </button>
-  </div>
-</div>
-                    </div>
-                  ) : (
-                    /* Placeholder when no video is loaded */
-                    <div className="main-placeholder-wrapper">
-                      <div className="no-video-placeholder">
-                        <div className="placeholder-content">
-                          <span className="placeholder-icon">🎬</span>
-                          <p>Enter a YouTube URL and click "Fetch Vid" to get started</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-      
-              {/* Dashboard Section */}
-              {showDashboard && (
-                <div className="video-dashboard-container">
-                  <VideoDashboard />
-                </div>
-              )}
-      
-              {/* Success Modal */}
-              <SuccessModal />
+        {/* Error Message Display */}
+        {error && (
+          <div className="error-notification">
+            <div className="error-message">
+              {error}
+              <button className="close-error" onClick={() => setError(null)}>×</button>
             </div>
           </div>
-        </>
-      );
+        )}
+
+        {/* Processing Overlay */}
+        {isProcessingVideo && !videoData && (
+          <div className="processing-overlay">
+            <div className="processing-content">
+              <div className="processing-spinner">
+                <div className="spinner-ring"></div>
+              </div>
+              <h3>Processing...</h3>
+              <p>Validating and saving your video to the cloud ⏳</p>
+            </div>
+          </div>
+        )}
+
+        {/* Main Content */}
+        {!isProcessingVideo && (
+          <div className="main-content-container">
+            {/* Video and Settings Wrapper */}
+            {videoData ? (
+              <div className="video-settings-wrapper">
+                <div className="video-settings-content">
+                  {/* Video Preview Container */}
+                  <div className="video-preview-container visible">
+                    <div className="video-data-container">
+                      <div className="video-section">
+                        <h3 className="section-heading">Thumbnail:</h3>
+                        <div className="video-thumbnail-container">
+                          <img
+                            src={videoData.thumbnail}
+                            alt="Video Thumbnail"
+                            className="video-thumbnail"
+                          />
+                        </div>
+                      </div>
+                      <div className="video-section">
+                        <h3 className="section-heading">Title:</h3>
+                        <div className="video-title-container">
+                          <h4 className="video-title" title={videoData.title}>
+                            {videoData.title}
+                          </h4>
+                        </div>
+                      </div>
+                      {/* Show formatted URL */}
+                      <div className="video-section">
+                        <h3 className="section-heading">Formatted URL:</h3>
+                        <div className="formatted-url-container">
+                          <code className="formatted-url">{videoURL}</code>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Settings Container */}
+                  <div className="settings-container">
+                    <div className="optimization-type">
+                      <h3>Choose Optimization Type:</h3>
+                      <div className="optimization-buttons">
+                        {["Long Form", "Short Form"].map((type) => (
+                          <button
+                            key={type}
+                            className={`btn ${
+                              optimizationType === type ? "btn--primary" : "btn--outline"
+                            }`}
+                            onClick={() => handleOptimizationTypeChange(type)}
+                          >
+                            {type}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {optimizationType === "Long Form" && (
+                      <div className="features">
+                        <h3>Select Features:</h3>
+                        <div className="feature-buttons">
+                          {["Noise Reduction", "Video Quality", "SEO"].map((feature) => (
+                            <button
+                              key={feature}
+                              className={`feature-btn ${
+                                selectedFeatures.includes(feature) ? "active" : ""
+                              }`}
+                              onClick={() => handleFeatureToggle(feature)}
+                            >
+                              <div className="feature-icon">{featureIcons[feature]}</div>
+                              <span>{feature}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {optimizationType === "Short Form" && (
+                      <div className="short-form-options">
+                        <div className="dropdown-container form-control">
+                          <label htmlFor="clipLength">Clip Length:</label>
+                          <select
+                            id="clipLength"
+                            value={clipLength}
+                            onChange={(e) => setClipLength(e.target.value)}
+                            className="input"
+                          >
+                            <option value="30">30 seconds</option>
+                            <option value="60">60 seconds</option>
+                            <option value="90">90 seconds</option>
+                            <option value="Auto">Auto</option>
+                          </select>
+                        </div>
+                        <div className="clip-count-container form-control">
+                          <label htmlFor="clipCount">Number of Clips (1-3):</label>
+                          <select
+                            id="clipCount"
+                            value={clipCount}
+                            onChange={(e) => setClipCount(parseInt(e.target.value))}
+                            className="select"
+                          >
+                            <option value={1}>1</option>
+                            <option value={2}>2</option>
+                            <option value={3}>3</option>
+                          </select>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="action-buttons-container">
+                  <div className="button-container">
+                    <button
+                      onClick={handleGenerateReport}
+                      disabled={generatingReport || !videoData || processing}
+                      className="btn btn--secondary generate-report-btn"
+                    >
+                      {generatingReport ? (
+                        <span className="loading-text">Analyzing...</span>
+                      ) : (
+                        "Get Report"
+                      )}
+                    </button>
+                    <button
+                      onClick={handleGenerateClick}
+                      disabled={processing || !videoData || generatingReport}
+                      className="btn btn--primary generate-btn"
+                    >
+                      {processing ? (
+                        <span className="loading-text">Processing...</span>
+                      ) : (
+                        "Generate"
+                      )}
+                    </button>
+
+                    <button
+                      onClick={() => setShowDashboard(!showDashboard)}
+                      className="btn btn--outline show-dashboard-btn"
+                    >
+                      {showDashboard ? "Hide Videos" : "Show Videos"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Placeholder when no video is loaded */
+              <div className="main-placeholder-wrapper">
+                <div className="no-video-placeholder">
+                  <div className="placeholder-content">
+                    <span className="placeholder-icon">🎬</span>
+                    <p>Enter a YouTube URL and click "Fetch" to get started</p>
+                    
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Dashboard Section */}
+        {showDashboard && (
+          <div className="video-dashboard-container">
+            <VideoDashboard />
+          </div>
+        )}
+
+        {/* Success Modal */}
+        <SuccessModal />
+      </div>
+    </div>
+  </>
+);
     }
 export default Clipper;

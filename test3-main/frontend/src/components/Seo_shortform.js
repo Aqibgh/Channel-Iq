@@ -5,10 +5,11 @@ import { db } from "../Firebase"; // Import Firestore Database
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import "./Seo_shortform.css";
 import { apiClient } from '../axios-use/api';
-
+import './header.css'; 
 function Seo_shortform({ videoThumbnail }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, logout } = useContext(UserContext); // Get user session
   const { message, results, selectedFeatures, selectedClip, videoTitle: initialVideoTitle } = location.state || {};
   const [seoMessage, setSeoMessage] = useState(message || "No SEO data received.");
@@ -341,122 +342,84 @@ const saveOptimizationDetails = async ({
   };
 
   const handleUploadToYouTube = async () => {
-  if (!user) {
-    setUploadStatus({
-      success: false,
-      message: "You must be logged in to upload to YouTube"
-    });
-    return;
-  }
-
-  if (!authToken) {
-    setUploadStatus({
-      success: false,
-      message: "Authentication token not found. Please log in again."
-    });
-    return;
-  }
-
-  setUploading(true);
-  setUploadStatus(null);
-
-  try {
-    // Get the video URL
-    const videoUrl = getVideoUrl();
-    
-    if (!videoUrl) {
-      throw new Error("No video URL available for upload");
-    }
-    
-    // Create form data for file upload
-    const formData = new FormData();
-    
-    formData.append('video_url', videoUrl);
-    formData.append('title', results?.seo?.title || videoTitle || "My Video");
-    formData.append('description', results?.seo?.description || "");
-    formData.append('tags', results?.seo?.hashtags?.join(",") || "");
-    
-    if (selectedClip?.key) {
-      formData.append('s3_key', selectedClip.key);
-    }
-    
-    // Debug logging
-    console.log("Uploading video with URL:", videoUrl);
-    console.log("Form data:", {
-      video_url: videoUrl,
-      title: results?.seo?.title || videoTitle || "My Video",
-      description: results?.seo?.description || "",
-      tags: results?.seo?.hashtags?.join(",") || "",
-      s3_key: selectedClip?.key || "N/A"
-    });
-    
-    // Make the API request to upload the video
-    const uploadResponse = await apiClient.post('/youtube/upload/', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-      timeout: 300000, // 5 minutes timeout for large file uploads
-    });
-    
-    const data = uploadResponse.data;
-    
-    if (data.success) {
-      setUploadStatus({
-        success: true,
-        message: `Video uploaded successfully! Video ID: ${data.video_id}`,
-        videoId: data.video_id
-      });
-    } else {
+    if (!user) {
       setUploadStatus({
         success: false,
-        message: data.error || "Failed to upload video"
+        message: "You must be logged in to upload to YouTube"
       });
+      return;
     }
-  } catch (error) {
-    console.error("Upload error:", error);
-    
-    // Handle different types of errors
-    if (error.response) {
-      // Server responded with error status
-      const { status, data } = error.response;
+  
+    if (!authToken) {
+      setUploadStatus({
+        success: false,
+        message: "Authentication token not found. Please log in again."
+      });
+      return;
+    }
+  
+    setUploading(true);
+    setUploadStatus(null);
+  
+    try {
+      // Get the video URL
+      const videoUrl = getVideoUrl();
       
-      if (status === 401 && data?.needs_auth) {
-        // YouTube auth needs renewal
-        setHasYoutubeAuth(false);
+      // Create form data for file upload
+      const formData = new FormData();
+      
+      formData.append('video_url', videoUrl);
+      formData.append('title', results?.seo?.title || "My Video");
+      formData.append('description', results?.seo?.description || "");
+      formData.append('tags', results?.seo?.hashtags?.join(",") || "");
+      
+      if (selectedClip?.key) {
+        formData.append('s3_key', selectedClip.key);
+      }
+      
+      
+      // Make the API request to upload the video
+      const uploadResponse = await apiClient.post('/youtube/upload/', formData);
+      
+      const data = await uploadResponse.data;
+      
+      // Check if we need to re-authorize YouTube
+      if (!uploadResponse.ok) {
+        if (uploadResponse.status === 401 && data.needs_auth) {
+          // YouTube auth needs renewal
+          setHasYoutubeAuth(false);
+          setUploadStatus({
+            success: false,
+            message: data.detail || "Your YouTube authorization has expired. Please reconnect your YouTube account.",
+            needsAuth: true
+          });
+          return;
+        }
+        throw new Error(`Upload failed with status: ${uploadResponse.status} ${uploadResponse.statusText}`);
+      }
+      
+      if (data.success) {
         setUploadStatus({
-          success: false,
-          message: data.detail || "Your YouTube authorization has expired. Please reconnect your YouTube account.",
-          needsAuth: true
-        });
-      } else if (status === 400) {
-        // Bad request - likely missing or invalid data
-        setUploadStatus({
-          success: false,
-          message: data?.error || "Invalid request. Please check your video data and try again."
+          success: true,
+          message: `Video uploaded successfully! Video ID: ${data.video_id}`,
+          videoId: data.video_id
         });
       } else {
         setUploadStatus({
           success: false,
-          message: data?.error || `Upload failed with status: ${status}`
+          message: data.error || "Failed to upload video"
         });
       }
-    } else if (error.request) {
-      // Network error
-      setUploadStatus({
-        success: false,
-        message: "Network error. Please check your connection and try again."
-      });
-    } else {
-      // Other error
+    } catch (error) {
+      console.error("Upload error:", error);
       setUploadStatus({
         success: false,
         message: `An error occurred during upload: ${error.message}`
       });
+    } finally {
+      setUploading(false);
     }
-  } finally {
-    setUploading(false);
-  }
-};
+  };
 
    // Handle copy functionality for SEO data
    const handleCopy = (text) => {
@@ -473,44 +436,96 @@ const saveOptimizationDetails = async ({
     <div className="seo-app">
       {/* Navbar with User Session */}
       {/* Header */}
-      <header className="dashboard-header">
-  <div className="logo-container" onClick={() => navigate("/")}>
-    <h1 className="logo">
-      <span className="logo-bold">Channel-</span>
-      <span className="logo-highlight">IQ</span>
-    </h1>
-  </div>
+      <header className="homepage-header">
+        {/* Left Section - Logo */}
+        <div className="homepage-header-left">
+          {/* Desktop Logo */}
+          <div className="homepage-logo-container desktop-only" onClick={() => navigate("/")}>
+            <h1 className="homepage-logo">
+              <span className="homepage-logo-bold">Channel-</span>
+              <span className="homepage-logo-highlight">IQ</span>
+            </h1>
+          </div>
 
-  <div className="header-right">
-    <a 
-      className="nav-link" 
-      href="/terms" // or use navigate("/terms") if you're using React Router
-      style={{ marginRight: '1rem', textDecoration: 'none', color: 'var(--color-text)', fontWeight: 500 }}
-    >
-      Terms & Services
-    </a>
-    <a 
-        className="nav-link" 
-        href="/videos" // Add this new link
-        style={{ marginRight: '1rem', textDecoration: 'none', color: 'var(--color-text)', fontWeight: 500 }}
-    >
-        Videos
-    </a>
+          {/* Mobile Login - Hidden on desktop */}
+          <div className="mobile-only">
+            {user ? (
+              <div className="homepage-user-profile">
+                <img src={user.picture} alt="User" className="homepage-user-avatar" />
+                <button className="homepage-logout-button" onClick={logout}>Logout</button>
+              </div>
+            ) : (
+              <button className="homepage-login-button" onClick={() => navigate("/login")}>
+                Login
+              </button>
+            )}
+          </div>
+        </div>
 
-    {user ? (
-      <div className="user-profile">
-        <img src={user.picture} alt="User" className="user-avatar" />
-        <span className="username">{user.name}</span>
-        <button className="logout-button" onClick={logout}>Logout</button>
-      </div>
-    ) : (
-      <button className="login-button" onClick={() => navigate("/login")}>
-        Login
-      </button>
-    )}
-  </div>
-</header>
+        {/* Mobile Logo - Center section only for mobile */}
+        <div className="homepage-center">
+          <div className="mobile-only homepage-logo-container" onClick={() => navigate("/")}>
+            <h1 className="homepage-logo">
+              <span className="homepage-logo-bold">Channel-</span>
+              <span className="homepage-logo-highlight">IQ</span>
+            </h1>
+          </div>
+        </div>
 
+        {/* Right Section - Navigation, Profile and mobile hamburger */}
+        <div className="homepage-header-right">
+          {/* Desktop Navigation */}
+          <nav className="homepage-nav desktop-only">
+            <a href="/terms">Terms & Services</a>
+            <a href="/videos">Videos</a>
+          </nav>
+          
+          {/* Desktop Profile */}
+          <div className="desktop-only">
+            {user ? (
+              <div className="homepage-user-profile">
+                <img src={user.picture} alt="User" className="homepage-user-avatar" />
+                <span className="homepage-username">{user.name}</span>
+                <button className="homepage-logout-button" onClick={logout}>Logout</button>
+              </div>
+            ) : (
+              <button className="homepage-login-button" onClick={() => navigate("/login")}>
+                Login
+              </button>
+            )}
+          </div>
+
+          {/* Mobile Hamburger Menu */}
+          <div className="homepage-hamburger-menu">
+            <button 
+              className="homepage-hamburger-button"
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              aria-label="Toggle menu"
+            >
+              <span className="homepage-hamburger-icon">☰</span>
+            </button>
+            
+            {isMenuOpen && (
+              <div className="homepage-menu-dropdown">
+                <a 
+                  className="homepage-menu-item" 
+                  href="/terms"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Terms & Services
+                </a>
+                <a 
+                  className="homepage-menu-item" 
+                  href="/videos"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Videos
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+    </header>
 
       <main className="main-content">
     

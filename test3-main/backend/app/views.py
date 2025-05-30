@@ -1559,21 +1559,12 @@ def upload_youtube_video(request):
             'needs_auth': True
         }, status=401)
     
-    # Handle both JSON and form data
-    if request.content_type == 'application/json':
-        # Handle JSON data
-        video_url = request.data.get('video_url')
-        s3_key = request.data.get('s3_key', '')
-        title = request.data.get('title', 'My Video')
-        description = request.data.get('description', '')
-        tags = request.data.get('tags', '').split(',') if request.data.get('tags') else []
-    else:
-        # Handle form data (original way)
-        video_url = request.POST.get('video_url')
-        s3_key = request.POST.get('s3_key', '')
-        title = request.POST.get('title', 'My Video')
-        description = request.POST.get('description', '')
-        tags = request.POST.get('tags', '').split(',') if request.POST.get('tags') else []
+    # Get video URL and metadata
+    video_url = request.POST.get('video_url')
+    s3_key = request.POST.get('s3_key', '')
+    title = request.POST.get('title', 'My Video')
+    description = request.POST.get('description', '')
+    tags = request.POST.get('tags', '').split(',') if request.POST.get('tags') else []
     
     if not video_url:
         return Response({'error': 'No video URL provided'}, status=400)
@@ -1645,6 +1636,7 @@ def upload_youtube_video(request):
             }
             youtube_auth.save()
             
+        # In upload_youtube_video view function
         except RefreshError as refresh_error:
             # Token is invalid and couldn't be refreshed
             if 'invalid_grant' in str(refresh_error):
@@ -1724,7 +1716,7 @@ def upload_youtube_video(request):
         return Response({'error': str(e)}, status=500)
         
     finally:
-        # Clean up resources
+    # Clean up resources
         if temp_file_name:
             if media:
                 # Try to close the media
@@ -1738,6 +1730,7 @@ def upload_youtube_video(request):
             time.sleep(2)
             
             cleanup_temporary_file(temp_file_name, media)
+
 
 def cleanup_temporary_file(temp_file_name, media=None):
     """Helper function to clean up temporary files with proper error handling"""
@@ -1890,34 +1883,11 @@ def update_youtube_seo(request):
     except YouTubeAuth.DoesNotExist:
         return Response({'error': 'YouTube authorization required', 'needs_auth': True}, status=401)
     
-    # ✅ FIXED: Handle both JSON and FormData
-    if request.content_type == 'application/json':
-        # Handle JSON data
-        try:
-            data = json.loads(request.body) if isinstance(request.body, bytes) else request.data
-        except (json.JSONDecodeError, AttributeError):
-            data = request.data
-        
-        video_id = data.get('video_id')
-        title = data.get('title')
-        description = data.get('description')
-        tags_string = data.get('tags', '')
-    else:
-        # Handle FormData (legacy support)
-        video_id = request.POST.get('video_id')
-        title = request.POST.get('title')
-        description = request.POST.get('description')
-        tags_string = request.POST.get('tags', '')
-    
-    # Process tags
-    tags = tags_string.split(',') if tags_string else []
-    tags = [tag.strip() for tag in tags if tag.strip()]  # Clean up tags
-    
-    # Debug logging
-    print(f"DEBUG: Received video_id: {video_id}")
-    print(f"DEBUG: Received title: {title}")
-    print(f"DEBUG: Received description length: {len(description) if description else 0}")
-    print(f"DEBUG: Received tags: {tags}")
+    # Get video ID and metadata
+    video_id = request.POST.get('video_id')
+    title = request.POST.get('title')
+    description = request.POST.get('description')
+    tags = request.POST.get('tags', '').split(',') if request.POST.get('tags') else []
     
     if not video_id:
         return Response({'error': 'No video ID provided'}, status=400)

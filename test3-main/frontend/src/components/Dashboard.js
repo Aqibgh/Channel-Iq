@@ -4,7 +4,6 @@ import { db } from "../Firebase";
 import { UserContext } from "./UserContext";
 import { useNavigate } from "react-router-dom";
 import "./Dashboard.css"; // Import styles
-
 const Dashboard = () => {
   const { user } = useContext(UserContext);
   const navigate = useNavigate();

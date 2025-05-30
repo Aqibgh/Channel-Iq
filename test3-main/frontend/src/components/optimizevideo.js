@@ -4,10 +4,11 @@ import { UserContext } from "./UserContext"; // Import User Context
 import "./optimizevideo.css";
 import { db } from "../Firebase"; // Import Firestore instance
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
-
+import './header.css'; 
 const OptimizeVideo = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, logout } = useContext(UserContext); // Get user session
   const [videoTitle, setVideoTitle] = useState(""); // Added state for video title
   const [videoPath, setVideoPath] = useState("");
@@ -213,43 +214,96 @@ const OptimizeVideo = () => {
     <div className="clipping-app">
       {/* Navbar with User Session */}
        {/* Header */}
-       <header className="dashboard-header">
-  <div className="logo-container" onClick={() => navigate("/")}>
-    <h1 className="logo">
-      <span className="logo-bold">Channel-</span>
-      <span className="logo-highlight">IQ</span>
-    </h1>
-  </div>
+      <header className="homepage-header">
+        {/* Left Section - Logo */}
+        <div className="homepage-header-left">
+          {/* Desktop Logo */}
+          <div className="homepage-logo-container desktop-only" onClick={() => navigate("/")}>
+            <h1 className="homepage-logo">
+              <span className="homepage-logo-bold">Channel-</span>
+              <span className="homepage-logo-highlight">IQ</span>
+            </h1>
+          </div>
 
-  <div className="header-right">
-    <a 
-      className="nav-link" 
-      href="/terms" // or use navigate("/terms") if you're using React Router
-      style={{ marginRight: '1rem', textDecoration: 'none', color: 'var(--color-text)', fontWeight: 500 }}
-    >
-      Terms & Services
-    </a>
-    <a 
-        className="nav-link" 
-        href="/videos" // Add this new link
-        style={{ marginRight: '1rem', textDecoration: 'none', color: 'var(--color-text)', fontWeight: 500 }}
-    >
-        Videos
-    </a>
+          {/* Mobile Login - Hidden on desktop */}
+          <div className="mobile-only">
+            {user ? (
+              <div className="homepage-user-profile">
+                <img src={user.picture} alt="User" className="homepage-user-avatar" />
+                <button className="homepage-logout-button" onClick={logout}>Logout</button>
+              </div>
+            ) : (
+              <button className="homepage-login-button" onClick={() => navigate("/login")}>
+                Login
+              </button>
+            )}
+          </div>
+        </div>
 
-    {user ? (
-      <div className="user-profile">
-        <img src={user.picture} alt="User" className="user-avatar" />
-        <span className="username">{user.name}</span>
-        <button className="logout-button" onClick={logout}>Logout</button>
-      </div>
-    ) : (
-      <button className="login-button" onClick={() => navigate("/login")}>
-        Login
-      </button>
-    )}
-  </div>
-</header>
+        {/* Mobile Logo - Center section only for mobile */}
+        <div className="homepage-center">
+          <div className="mobile-only homepage-logo-container" onClick={() => navigate("/")}>
+            <h1 className="homepage-logo">
+              <span className="homepage-logo-bold">Channel-</span>
+              <span className="homepage-logo-highlight">IQ</span>
+            </h1>
+          </div>
+        </div>
+
+        {/* Right Section - Navigation, Profile and mobile hamburger */}
+        <div className="homepage-header-right">
+          {/* Desktop Navigation */}
+          <nav className="homepage-nav desktop-only">
+            <a href="/terms">Terms & Services</a>
+            <a href="/videos">Videos</a>
+          </nav>
+          
+          {/* Desktop Profile */}
+          <div className="desktop-only">
+            {user ? (
+              <div className="homepage-user-profile">
+                <img src={user.picture} alt="User" className="homepage-user-avatar" />
+                <span className="homepage-username">{user.name}</span>
+                <button className="homepage-logout-button" onClick={logout}>Logout</button>
+              </div>
+            ) : (
+              <button className="homepage-login-button" onClick={() => navigate("/login")}>
+                Login
+              </button>
+            )}
+          </div>
+
+          {/* Mobile Hamburger Menu */}
+          <div className="homepage-hamburger-menu">
+            <button 
+              className="homepage-hamburger-button"
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              aria-label="Toggle menu"
+            >
+              <span className="homepage-hamburger-icon">☰</span>
+            </button>
+            
+            {isMenuOpen && (
+              <div className="homepage-menu-dropdown">
+                <a 
+                  className="homepage-menu-item" 
+                  href="/terms"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Terms & Services
+                </a>
+                <a 
+                  className="homepage-menu-item" 
+                  href="/videos"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Videos
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+    </header>
 
       <div className="optimized-video-page">
         <header className="page-header">
