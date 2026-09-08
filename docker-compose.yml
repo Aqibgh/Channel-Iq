@@ -3,7 +3,7 @@ name: channel-iq
 services:
   backend:
     build:
-      context: ./test3-main/backend
+      context: ./backend
       dockerfile: Dockerfile.demo
     environment:
       DJANGO_SETTINGS_MODULE: backend.settings
@@ -46,7 +46,7 @@ services:
 
   frontend:
     build:
-      context: ./test3-main/frontend
+      context: ./frontend
       dockerfile: Dockerfile.demo
     environment:
       HOST: 0.0.0.0
@@ -65,7 +65,7 @@ services:
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     volumes:
-      - ./test3-main/frontend:/app
+      - ./frontend:/app
       - frontend_node_modules:/app/node_modules
     depends_on:
       backend:

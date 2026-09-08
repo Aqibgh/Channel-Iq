@@ -2,7 +2,10 @@
 
 Channel IQ is a React and Django application for YouTube video analysis, SEO generation, and video processing.
 
-The application source lives under [`test3-main/`](test3-main/). The repository intentionally does not contain credentials, cookies, databases, TLS keys, generated build output, or dependency directories.
+The application source is kept at the repository root in `backend/` and
+`frontend/`. The repository intentionally does not contain credentials,
+cookies, databases, TLS keys, generated build output, or dependency
+directories.
 
 ## Run the demo with Docker
 
@@ -32,7 +35,10 @@ docker compose down
 
 ## Configuration
 
-Use [`.env.example`](.env.example) as the Docker template. For direct local development, use [`backend/.env.example`](test3-main/backend/.env.example) and [`frontend/.env.example`](test3-main/frontend/.env.example). Never commit `.env` or credential JSON files.
+Use [`.env.example`](.env.example) as the Docker template. For direct local
+development, use [`backend/.env.example`](backend/.env.example) and
+[`frontend/.env.example`](frontend/.env.example). Never commit `.env` or
+credential JSON files.
 
 The YouTube OAuth client secret and Firebase service-account JSON are supplied through `GOOGLE_CLIENT_SECRETS_FILE` and `FIREBASE_SERVICE_ACCOUNT_KEY_PATH`. YouTube cookies are optional and must be generated locally with the management command when needed.
 
@@ -42,10 +48,10 @@ Video-processing code prefers the bundled Windows executables when available, th
 
 ```text
 .
-├── docker-compose.yml       # local demo stack
-└── test3-main/
-    ├── backend/             # Django API and processing pipeline
-    └── frontend/            # React client
+├── backend/                  # Django API and processing pipeline
+├── frontend/                 # React client
+├── requirements.txt          # full backend dependency list
+└── docker-compose.yml        # local demo stack
 ```
 
 ## Public-release note
