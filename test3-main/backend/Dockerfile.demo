@@ -13,7 +13,9 @@ RUN python -m pip install --upgrade pip && \
 COPY . .
 
 RUN mkdir -p /app/data /app/media /app/logs
+COPY docker-entrypoint.demo.sh /usr/local/bin/channel-iq-demo-entrypoint
+RUN chmod 0555 /usr/local/bin/channel-iq-demo-entrypoint
 
 EXPOSE 8000
 
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+ENTRYPOINT ["/usr/local/bin/channel-iq-demo-entrypoint"]

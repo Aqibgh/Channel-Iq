@@ -1,5 +1,10 @@
 import axios from 'axios';
 
+const configuredTimeout = Number(process.env.REACT_APP_API_TIMEOUT_MS);
+const API_TIMEOUT_MS = Number.isFinite(configuredTimeout) && configuredTimeout > 0
+  ? configuredTimeout
+  : 30 * 60 * 1000;
+
 // Configure Axios instance
 const apiClient = axios.create({
   baseURL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/',
@@ -8,7 +13,7 @@ const apiClient = axios.create({
     'Content-Type': 'application/json',
     'X-Requested-With': 'XMLHttpRequest'
   },
-  timeout: 3000000000000,
+  timeout: API_TIMEOUT_MS,
   xsrfCookieName: 'csrftoken',
   xsrfHeaderName: 'X-CSRFToken'
 });

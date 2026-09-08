@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useRef, useState } from "react";
+import React, { useContext, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import "./ReportPage.css"; // We'll create this CSS file next
 import { UserContext } from "./UserContext"; // Import User Context
@@ -9,7 +9,7 @@ function ReportPage() {
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, logout } = useContext(UserContext); // Access User Context
-  const { videoURL, videoTitle, report, thumbnail } = location.state || {};
+  const { report } = location.state || {};
 
   // Handle case where page is accessed directly without data
   if (!report) {
@@ -24,26 +24,55 @@ function ReportPage() {
     );
   }
 
-  // Function to format the analysis sections with better styling
+  // Render generated report text as escaped React elements instead of raw HTML.
   const formatAnalysisSection = (sectionText) => {
-    // Replace section headers with styled headers
-    const formattedText = sectionText.replace(
-      /^(\d+\.\s+[A-Z\s]+)(\s*\(.*?\))?:/gm,
-      '<h3 class="section-header">$1$2:</h3>'
-    );
+    const lines = typeof sectionText === "string" ? sectionText.split("\n") : [];
+    const elements = [];
+    let bulletItems = [];
+    let bulletGroup = 0;
 
-    // Format bullet points
-    return formattedText
-      .split("\n")
-      .map((line) => {
-        // Convert bullet points to styled list items
-        if (line.trim().startsWith("•") ||line.trim().startsWith("*")) {
-          return `<li class="bullet-point">${line.trim().substring(1).trim()}</li>`;
-        }
-        // Keep paragraphs as they are
-        return line.trim() ? `<p>${line.trim()}</p>` : "";
-      })
-      .join("");
+    const flushBulletItems = () => {
+      if (bulletItems.length === 0) return;
+      elements.push(
+        <ul className="analysis-bullets" key={`bullet-group-${bulletGroup}`}>
+          {bulletItems}
+        </ul>
+      );
+      bulletItems = [];
+      bulletGroup += 1;
+    };
+
+    lines.forEach((line, lineIndex) => {
+      const trimmedLine = line.trim();
+      if (!trimmedLine) return;
+
+      const headerMatch = trimmedLine.match(/^(\d+\.\s+[A-Z\s]+)(\s*\(.*?\))?:$/);
+      if (headerMatch) {
+        flushBulletItems();
+        elements.push(
+          <h3 className="section-header" key={`header-${lineIndex}`}>
+            {`${headerMatch[1]}${headerMatch[2] || ""}:`}
+          </h3>
+        );
+        return;
+      }
+
+      const bulletMatch = trimmedLine.match(/^(?:\u2022|\u00e2\u20ac\u00a2|\*)\s*(.*)$/);
+      if (bulletMatch) {
+        bulletItems.push(
+          <li className="bullet-point" key={`bullet-${lineIndex}`}>
+            {bulletMatch[1]}
+          </li>
+        );
+        return;
+      }
+
+      flushBulletItems();
+      elements.push(<p key={`paragraph-${lineIndex}`}>{trimmedLine}</p>);
+    });
+
+    flushBulletItems();
+    return elements;
   };
 
   return (
@@ -153,10 +182,9 @@ function ReportPage() {
             
             <div className="full-analysis report-box">
               <h3>Full Analysis</h3>
-              <div 
-                className="analysis-content"
-                dangerouslySetInnerHTML={{ __html: formatAnalysisSection(report.full_analysis) }}
-              />
+              <div className="analysis-content">
+                {formatAnalysisSection(report.full_analysis)}
+              </div>
             </div>
 
            
@@ -176,4 +204,4 @@ function ReportPage() {
   );
 }
 
-export default ReportPage; 
+export default ReportPage;

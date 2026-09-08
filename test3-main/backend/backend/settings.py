@@ -15,13 +15,28 @@ load_dotenv()
 # Base directory path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Security Key - Must be set in production
+def env_flag(name, default=False):
+    """Read a boolean environment flag while preserving safe defaults."""
+    value = os.getenv(name)
+    if value is None or not value.strip():
+        return default
+    return value.strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
+# Security Key - Must be set in production. The demo may provide a persisted
+# file path instead of placing the generated key in the Compose environment.
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
+SECRET_KEY_FILE = os.getenv('DJANGO_SECRET_KEY_FILE')
+if not SECRET_KEY and SECRET_KEY_FILE:
+    try:
+        SECRET_KEY = Path(SECRET_KEY_FILE).read_text(encoding='utf-8').strip()
+    except OSError:
+        SECRET_KEY = None
 if not SECRET_KEY:
     raise ValueError("No SECRET_KEY set for Django application")
 
 # Debug mode (Turn off in production)
-DEBUG = os.getenv('DEBUG', 'False') == 'True'
+DEBUG = env_flag('DEBUG', False)
 
 # Hosts allowed to access the application
 ALLOWED_HOSTS_ENV = os.getenv('ALLOWED_HOSTS', '')
@@ -32,9 +47,10 @@ else:
     ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
 # Security Settings
-SECURE_SSL_REDIRECT = False
-SESSION_COOKIE_SECURE = not DEBUG
-CSRF_COOKIE_SECURE = not DEBUG
+SECURE_SSL_REDIRECT = env_flag('SECURE_SSL_REDIRECT', False)
+SECURE_COOKIES = env_flag('SECURE_COOKIES', not DEBUG)
+SESSION_COOKIE_SECURE = SECURE_COOKIES
+CSRF_COOKIE_SECURE = SECURE_COOKIES
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
@@ -99,7 +115,6 @@ else:
     ]
 CSRF_COOKIE_HTTPONLY = False  # Allows JS to read the CSRF cookie
 CSRF_USE_SESSIONS = False
-CSRF_COOKIE_SECURE = True     # For HTTPS
 CSRF_COOKIE_SAMESITE = 'None' # Required for cross-site cookies
 # Additional CORS settings
 CORS_ALLOW_CREDENTIALS = True

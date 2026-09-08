@@ -8,8 +8,10 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: backend.settings
       PYTHONPATH: /app
-      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-local-demo-only-change-me}
-      DEBUG: ${DEBUG:-True}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-}
+      DJANGO_SECRET_KEY_FILE: /app/data/.django-secret
+      DEBUG: ${DEBUG:-False}
+      SECURE_COOKIES: ${SECURE_COOKIES:-}
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
       CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-http://localhost:3000}
@@ -29,9 +31,6 @@ services:
     volumes:
       - backend_data:/app/data
       - backend_media:/app/media
-    command: >-
-      sh -c "python manage.py migrate --noinput &&
-      python manage.py runserver 0.0.0.0:8000"
     healthcheck:
       test:
         - CMD
@@ -54,6 +53,7 @@ services:
       PORT: 3000
       CHOKIDAR_USEPOLLING: "true"
       REACT_APP_API_BASE_URL: ${REACT_APP_API_BASE_URL:-http://localhost:8000/api/}
+      REACT_APP_API_TIMEOUT_MS: ${REACT_APP_API_TIMEOUT_MS:-1800000}
       REACT_APP_GOOGLE_CLIENT_ID: ${REACT_APP_GOOGLE_CLIENT_ID:-}
       REACT_APP_FIREBASE_API_KEY: ${REACT_APP_FIREBASE_API_KEY:-}
       REACT_APP_FIREBASE_AUTH_DOMAIN: ${REACT_APP_FIREBASE_AUTH_DOMAIN:-}
