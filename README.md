@@ -33,7 +33,8 @@ The API is mounted at `/api/`. The Django health endpoint is available at `/heal
 ### Requirements
 
 - Docker Desktop with Docker Compose v2.
-- Git LFS if you need the optional LFS-managed Windows media binaries.
+- FFmpeg for full media-processing features.
+- ExifTool for optional metadata preservation during video processing.
 
 ### Start the demo
 
@@ -66,6 +67,24 @@ Stop the demo with:
 ~~~powershell
 docker compose down
 ~~~
+
+### Media-processing tools
+
+The repository does not vendor platform-specific media executables. Install the required tools on the host that runs the backend and make them available on `PATH`:
+
+| Tool | Required for | Verification |
+| --- | --- | --- |
+| `ffmpeg` and `ffprobe` | Video conversion, audio extraction, duration, and resolution checks | `ffmpeg -version` and `ffprobe -version` |
+| `exiftool` | Optional metadata copying during image/video processing | `exiftool -ver` |
+
+Installation references:
+
+- [FFmpeg downloads](https://ffmpeg.org/download.html) — choose the build for your operating system and add its `bin` directory to `PATH`.
+- [ExifTool installation](https://exiftool.org/install.html) — on Windows, rename `exiftool(-k).exe` to `exiftool.exe` and place it, together with its `exiftool_files` directory, in a directory on `PATH`.
+
+The production backend image installs FFmpeg through its Dockerfile. The lightweight demo image is intended for the UI and health-check flow; install the media tools in that image or use the full backend image when exercising media-processing endpoints. The application skips optional metadata copying when ExifTool is unavailable.
+
+For the video-processing module, `FFMPEG_BINARY` and `EXIFTOOL_BINARY` can override the fallback executable paths. Keeping the executables on `PATH` is recommended because other processing commands invoke `ffmpeg` and `ffprobe` directly.
 
 If ports `3000` or `8000` are already in use, set alternate values in `.env` and keep the frontend/API origins aligned:
 

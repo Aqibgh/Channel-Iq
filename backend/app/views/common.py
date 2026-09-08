@@ -66,7 +66,7 @@ except ImportError:
 
 
 try:
-    from ..utils.video.anas import process_media, process_media_shortform
+    from ..utils.video.video_processing import process_media, process_media_shortform
 except ImportError:
     process_media = _unavailable_feature("video upscaling")
     process_media_shortform = _unavailable_feature("short-form video upscaling")
