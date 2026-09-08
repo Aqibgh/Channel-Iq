@@ -1,3 +1,43 @@
+# Local configuration and secrets
 .env
-*.mp4
+.env.*
+!.env.example
+**/client_secret.json
+**/firebase_credential.json
+**/*cookies*.txt
+**/*.pem
+**/*.key
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+
+# Node
 node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Generated application output
+build/
+dist/
+staticfiles/
+media/
+logs/
+*.log
+*.sqlite3
+*.sqlite3-journal
+*.db
+*.mp4
+
+# IDE and operating-system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

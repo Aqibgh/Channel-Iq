@@ -135,16 +135,9 @@ RUN ldconfig && \
 RUN mkdir -p /app/logs /app/media /app/staticfiles /app/data /app/tmp /app/models /app/models/cache \
     /app/data/nltk_data /app/data/matplotlib /app/data/transformers /app/data/huggingface /app/data/torch
 
-# Create nginx directories and copy SSL certificates
+# Create runtime directories. TLS certificates must be mounted at runtime and
+# are intentionally not copied from the source tree.
 RUN mkdir -p /etc/nginx/ssl /var/log/nginx /var/lib/nginx/body /var/lib/nginx/fastcgi /var/lib/nginx/proxy /var/lib/nginx/scgi /var/lib/nginx/uwsgi
-
-# Copy SSL certificates from nginx/ssl/ to container
-COPY nginx/ssl/privkey.pem /etc/nginx/ssl/privkey.pem
-COPY nginx/ssl/fullchain.pem /etc/nginx/ssl/fullchain.pem
-
-# Set proper SSL certificate permissions
-RUN chmod 600 /etc/nginx/ssl/privkey.pem && \
-    chmod 644 /etc/nginx/ssl/fullchain.pem
 
 # Copy nginx configuration files
 COPY nginx/nginx.conf /etc/nginx/nginx.conf

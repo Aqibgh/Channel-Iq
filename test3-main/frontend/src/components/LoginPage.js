@@ -1,7 +1,7 @@
 import React, { useContext, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { signInWithPopup } from "firebase/auth";
-import { auth, provider, db } from "../Firebase";
+import { auth, provider, db, firebaseConfigured } from "../Firebase";
 import { arrayUnion, doc, setDoc, updateDoc } from "firebase/firestore";
 import { UserContext } from "./UserContext";
 import "./LoginPage.css";
@@ -19,6 +19,11 @@ const LoginPage = () => {
   }, [user, navigate]);
 
   const handleGoogleLogin = async () => {
+    if (!firebaseConfigured) {
+      alert("Google login is not configured for this demo. Add the Firebase values from frontend/.env.example.");
+      return;
+    }
+
     try {
       
       // 🔹 Step 1: Sign in with Firebase

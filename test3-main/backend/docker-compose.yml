@@ -2,14 +2,15 @@ version: '3.8'
 
 services:
   web:
+    profiles: ["production"]
     build:
       context: .
       dockerfile: Dockerfile
     restart: always
-    env_file: .env
     environment:
       - DJANGO_SETTINGS_MODULE=backend.settings
       - PYTHONPATH=/app
+      - FIREBASE_SERVICE_ACCOUNT_KEY_PATH=/run/secrets/firebase_credential.json
       - GUNICORN_WORKERS=4
       - GUNICORN_THREADS=2
       - GUNICORN_MAX_REQUESTS=1000
@@ -19,7 +20,7 @@ services:
       - media_volume:/app/media
       - logs_volume:/app/logs
       - sqlite_data:/app/data
-      - ./firebase_credential.json:/app/firebase_credential.json:ro
+      - ${FIREBASE_CREDENTIAL_FILE:-./.secrets/firebase_credential.json}:/run/secrets/firebase_credential.json:ro
     networks:
       - app_network
     deploy:
@@ -47,6 +48,7 @@ services:
         hard: 65536
 
   nginx:
+    profiles: ["production"]
     image: nginx:1.25-alpine
     restart: always
     ports:

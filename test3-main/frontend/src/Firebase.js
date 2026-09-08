@@ -1,29 +1,39 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage"; 
-import { collection, getDocs } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
-
-// ✅ Replace with your Firebase config
 const firebaseConfig = {
-    apiKey: "AIzaSyBZ8aocP9ZyByY9wtPQPDSk36z_gOEHB6Q",
-    authDomain: "channeliq-d0733.firebaseapp.com",
-    projectId: "channeliq-d0733",
-    storageBucket: "channeliq-d0733.appspot.com",  // Fixed typo
-    messagingSenderId: "535482841072",
-    appId: "1:535482841072:web:f93282b966c7323e054f35",
-    clientId: "535482841072-q4t12p6mssmb7s0q7pprs9i8drcqnnbk.apps.googleusercontent.com" // ✅ Ensure it's correctly named
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
+  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.REACT_APP_FIREBASE_APP_ID,
+  measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID,
 };
 
-// ✅ Initialize Firebase
-const app = initializeApp(firebaseConfig);
+const requiredConfig = [
+  "apiKey",
+  "authDomain",
+  "projectId",
+  "storageBucket",
+  "messagingSenderId",
+  "appId",
+];
 
-// ✅ Export Firebase services
-export const auth = getAuth(app);
-export const provider = new GoogleAuthProvider();
-export const db = getFirestore(app);
-export const storage = getStorage(app);
-export const clientId = firebaseConfig.clientId; // ✅ Export the clientId
+const missingConfig = requiredConfig.filter((key) => !firebaseConfig[key]);
+export const firebaseConfigured = missingConfig.length === 0;
+
+// Keep the public demo renderable without publishing Firebase credentials.
+// Authentication and persistence become available as soon as the documented
+// REACT_APP_FIREBASE_* values are supplied.
+const app = firebaseConfigured ? initializeApp(firebaseConfig) : null;
+
+export const auth = app ? getAuth(app) : null;
+export const provider = app ? new GoogleAuthProvider() : null;
+export const db = app ? getFirestore(app) : null;
+export const storage = app ? getStorage(app) : null;
+export const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID || "";
 
 export default app;

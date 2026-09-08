@@ -5,10 +5,8 @@ from googleapiclient.errors import HttpError
 from urllib.parse import urlparse, parse_qs
 import boto3
 import yt_dlp
-import whisper
 import tempfile
 import logging
-import torch
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from google.auth.transport import requests
@@ -19,7 +17,6 @@ from django.shortcuts import redirect
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
 import subprocess
-from moviepy.editor import VideoFileClip
 from botocore.exceptions import ClientError
 from django.views.decorators.http import require_POST
 logger = logging.getLogger(__name__)
@@ -27,14 +24,64 @@ import json
 import re
 from django.core.files.storage import FileSystemStorage
 from django.http import JsonResponse
-from .utils.SEO import EnhancedYouTubeSEOGenerator
-from .utils.Audio.audio import AudioEnhancer
-from .utils.clips.clips2.main import process_video
 from .utils.fetchData import fetch_video_metadata
-from .utils.video.anas import process_media
-from .utils.video.anas import process_media_shortform
-from .utils.Captions import DjangoVideoTranscriber
 from .utils.s3uploader import S3Uploader
+
+
+def _unavailable_feature(feature_name):
+    """Return a callable that explains which optional demo dependency is missing."""
+    def unavailable(*args, **kwargs):
+        raise RuntimeError(
+            f"{feature_name} is unavailable in the lightweight demo image. "
+            "Install backend/requirement.txt for the full media-processing stack."
+        )
+
+    return unavailable
+
+
+def _unavailable_class(feature_name):
+    class UnavailableFeature:
+        def __init__(self, *args, **kwargs):
+            raise RuntimeError(
+                f"{feature_name} is unavailable in the lightweight demo image. "
+                "Install backend/requirement.txt for the full media-processing stack."
+            )
+
+    UnavailableFeature.__name__ = feature_name
+    return UnavailableFeature
+
+
+try:
+    from moviepy.editor import VideoFileClip
+except ImportError:
+    VideoFileClip = _unavailable_class("video resolution")
+
+
+try:
+    from .utils.SEO import EnhancedYouTubeSEOGenerator
+except ImportError:
+    EnhancedYouTubeSEOGenerator = _unavailable_class("SEO generation")
+
+try:
+    from .utils.Audio.audio import AudioEnhancer
+except ImportError:
+    AudioEnhancer = _unavailable_class("audio enhancement")
+
+try:
+    from .utils.clips.clips2.main import process_video
+except ImportError:
+    process_video = _unavailable_feature("clip processing")
+
+try:
+    from .utils.video.anas import process_media, process_media_shortform
+except ImportError:
+    process_media = _unavailable_feature("video upscaling")
+    process_media_shortform = _unavailable_feature("short-form video upscaling")
+
+try:
+    from .utils.Captions import DjangoVideoTranscriber
+except ImportError:
+    DjangoVideoTranscriber = _unavailable_class("caption generation")
 import google.oauth2.credentials
 import google_auth_oauthlib.flow
 import googleapiclient.discovery
@@ -50,10 +97,9 @@ import google_auth_httplib2
 from django.core.mail import send_mail
 from rest_framework_simplejwt.tokens import RefreshToken
 User = get_user_model()
-# Ensure the YouTube API key is set in environment variables
+# Optional integrations are configured through environment variables. Endpoints
+# return a clear configuration response when a demo instance has no API key.
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
-if not YOUTUBE_API_KEY:
-    raise ValueError("YouTube API Key not set. Please configure it in environment variables.")
 MEDIA_ROOT = os.path.join(os.getcwd(), 'media')
 
 @api_view(['POST'])
@@ -1098,6 +1144,9 @@ def fetch_video_data(request):
     if not video_id:
         return JsonResponse({"error": "Invalid YouTube URL"}, status=400)
 
+    if not YOUTUBE_API_KEY:
+        return JsonResponse({"error": "YouTube API is not configured"}, status=503)
+
     try:
         youtube = build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
         response = youtube.videos().list(part="snippet", id=video_id).execute()
@@ -1430,9 +1479,12 @@ def check_auth(request):
 @permission_classes([IsAuthenticated])
 def authorize_youtube(request):
     """Initiate YouTube authorization flow"""
+    if not os.path.isfile(settings.GOOGLE_CLIENT_SECRETS_FILE):
+        return Response({'error': 'YouTube OAuth is not configured'}, status=503)
+
     # Create OAuth 2.0 flow instance
     flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
-        os.path.join(settings.BASE_DIR, 'client_secret.json'),
+        settings.GOOGLE_CLIENT_SECRETS_FILE,
         scopes=SCOPES
     )
     
@@ -1460,6 +1512,9 @@ from django.http import HttpResponse
 @csrf_exempt
 def youtube_callback(request):
     """Handle callback from YouTube authorization"""
+    if not os.path.isfile(settings.GOOGLE_CLIENT_SECRETS_FILE):
+        return JsonResponse({'error': 'YouTube OAuth is not configured'}, status=503)
+
     # Get state from request parameters (not from session)
     state = request.GET.get('state')
     
@@ -1480,7 +1535,7 @@ def youtube_callback(request):
     
     # Create flow instance
     flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
-        os.path.join(settings.BASE_DIR, 'client_secret.json'),
+        settings.GOOGLE_CLIENT_SECRETS_FILE,
         scopes=SCOPES,
         state=state  # Use the complete state from the request
     )
@@ -1782,8 +1837,11 @@ def cleanup_temporary_file(temp_file_name, media=None):
 
 from rest_framework_simplejwt.tokens import RefreshToken
 from app.models import CustomUser  # Import your custom user model
-import firebase_admin
-from firebase_admin import auth as firebase_auth
+
+try:
+    from firebase_admin import auth as firebase_auth
+except ImportError:
+    firebase_auth = None
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def google_login(request):
@@ -1792,6 +1850,9 @@ def google_login(request):
 
     if not token:
         return Response({'error': 'Token is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not settings.FIREBASE_ENABLED:
+        return Response({'error': 'Firebase authentication is not configured'}, status=503)
 
     try:
         # Step 1: Decode Firebase token
@@ -1845,9 +1906,12 @@ def google_login(request):
 @permission_classes([IsAuthenticated])
 def get_youtube_auth_url(request):
     """Generate and return a YouTube authorization URL with user ID embedded in state"""
+    if not os.path.isfile(settings.GOOGLE_CLIENT_SECRETS_FILE):
+        return Response({'error': 'YouTube OAuth is not configured'}, status=503)
+
     # Create OAuth 2.0 flow instance
     flow = google_auth_oauthlib.flow.Flow.from_client_secrets_file(
-        os.path.join(settings.BASE_DIR, 'client_secret.json'),
+        settings.GOOGLE_CLIENT_SECRETS_FILE,
         scopes=SCOPES
     )
     

@@ -1,8 +1,13 @@
 from pathlib import Path
 import os
 from dotenv import load_dotenv
-import firebase_admin
-from firebase_admin import credentials
+
+try:
+    import firebase_admin
+    from firebase_admin import credentials
+except ImportError:  # Firebase is optional for the public demo image.
+    firebase_admin = None
+    credentials = None
 
 # Load environment variables from .env file
 load_dotenv()
@@ -24,7 +29,7 @@ if ALLOWED_HOSTS_ENV:
     ALLOWED_HOSTS = ALLOWED_HOSTS_ENV.split(',')
 else:
     # Default allowed hosts for development
-    ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'channel-iq.nzxtsol.com', 'www.channel-iq.nzxtsol.com']
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
 # Security Settings
 SECURE_SSL_REDIRECT = False
@@ -80,9 +85,6 @@ else:
     CORS_ALLOWED_ORIGINS = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "https://channel-iq.nzxtsol.com",
-        "https://www.channel-iq.nzxtsol.com",
-        "https://channeliq.vercel.app"
     ]
 
 # CSRF Configuration - Fixed to handle environment variables properly
@@ -94,9 +96,6 @@ else:
     CSRF_TRUSTED_ORIGINS = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "https://channel-iq.nzxtsol.com",
-        "https://www.channel-iq.nzxtsol.com",
-        "https://channeliq.vercel.app"
     ]
 CSRF_COOKIE_HTTPONLY = False  # Allows JS to read the CSRF cookie
 CSRF_USE_SESSIONS = False
@@ -148,8 +147,8 @@ DATABASES = {
 }
 
 # YouTube configuration
-YOUTUBE_COOKIES_BROWSER = 'firefox'
-YOUTUBE_COOKIES_FILE = os.path.join(BASE_DIR, 'youtube_cookies.txt')
+YOUTUBE_COOKIES_BROWSER = os.getenv('YOUTUBE_COOKIES_BROWSER', 'firefox')
+YOUTUBE_COOKIES_FILE = os.getenv('YOUTUBE_COOKIES_FILE') or os.path.join(BASE_DIR, 'youtube_cookies.txt')
 YOUTUBE_DL_CONFIG = {
     'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'sleep_interval': 2,  # Sleep between requests
@@ -271,10 +270,18 @@ SIMPLE_JWT = {
 }
 
 # Firebase Configuration
-FIREBASE_SERVICE_ACCOUNT_KEY_PATH = os.path.join(BASE_DIR, "firebase_credential.json")
-if not firebase_admin._apps:
+FIREBASE_SERVICE_ACCOUNT_KEY_PATH = os.getenv('FIREBASE_SERVICE_ACCOUNT_KEY_PATH') or os.path.join(
+    BASE_DIR, 'firebase_credential.json'
+)
+FIREBASE_ENABLED = bool(firebase_admin and os.path.isfile(FIREBASE_SERVICE_ACCOUNT_KEY_PATH))
+if FIREBASE_ENABLED and not firebase_admin._apps:
     cred = credentials.Certificate(FIREBASE_SERVICE_ACCOUNT_KEY_PATH)
     firebase_admin.initialize_app(cred)
+
+# Keep the OAuth client secret outside the repository.
+GOOGLE_CLIENT_SECRETS_FILE = os.getenv('GOOGLE_CLIENT_SECRETS_FILE') or os.path.join(
+    BASE_DIR, 'client_secret.json'
+)
 
 # Other Settings
 LANGUAGE_CODE = 'en-us'

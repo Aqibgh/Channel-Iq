@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Configure Axios instance
 const apiClient = axios.create({
-  baseURL: 'https://channel-iq.nzxtsol.com:40199/api/',
+  baseURL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/',
   withCredentials: true, // Required for cookies
   headers: {
     'Content-Type': 'application/json',

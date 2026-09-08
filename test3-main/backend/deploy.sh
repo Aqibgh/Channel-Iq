@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Deployment script for Django application - channel-iq.nzxtsol.com
+# Deployment script for the Django application
 set -e
 
-echo "🚀 Starting deployment for channel-iq.nzxtsol.com..."
+echo "Starting deployment..."
 
 # Colors for output
 RED='\033[0;31m'
@@ -13,8 +13,8 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Domain configuration
-DOMAIN="channel-iq.nzxtsol.com"
-EMAIL="nzxtbiz@gmail.com"  # Change this to your email for Let's Encrypt
+DOMAIN="${DOMAIN:?Set DOMAIN before running this deployment script}"
+EMAIL="${EMAIL:-}"
 
 # Function to print colored output
 print_status() {

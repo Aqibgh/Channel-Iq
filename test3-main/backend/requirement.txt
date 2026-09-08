@@ -67,3 +67,4 @@ googleapis-common-protos==1.62.0
 black==23.12.1
 flake8==7.0.0
 gunicorn
+psutil>=5.9,<7

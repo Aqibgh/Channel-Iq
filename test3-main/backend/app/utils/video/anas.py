@@ -4,7 +4,7 @@ from functools import cache
 from time import sleep
 from webbrowser import open as open_browser
 from subprocess import run as subprocess_run
-from shutil import rmtree as remove_directory
+from shutil import rmtree as remove_directory, which as find_executable
 from timeit import default_timer as timer
 import os
 from typing import Callable
@@ -146,8 +146,20 @@ video_extension_list = [".mp4 (x264)", ".mp4 (x265)", ".avi"]
 OUTPUT_PATH_CODED = "Same path as input files"
 DOCUMENT_PATH = os_path_join(os_path_expanduser('~'), 'Documents')
 USER_PREFERENCE_PATH = find_by_relative_path(f"{DOCUMENT_PATH}{os_separator}{app_name}_UserPreference.json")
-FFMPEG_EXE_PATH = os.path.join(os.getcwd(), "ffmpeg", "ffmpeg.exe")
-EXIFTOOL_EXE_PATH = find_by_relative_path(f"Assets{os_separator}exiftool.exe")
+_bundled_ffmpeg_path = os.path.join(os.getcwd(), "ffmpeg", "ffmpeg.exe")
+_bundled_exiftool_path = find_by_relative_path(f"Assets{os_separator}exiftool.exe")
+FFMPEG_EXE_PATH = (
+    os_environ.get("FFMPEG_BINARY")
+    or (_bundled_ffmpeg_path if os_path_exists(_bundled_ffmpeg_path) else None)
+    or find_executable("ffmpeg")
+    or ""
+)
+EXIFTOOL_EXE_PATH = (
+    os_environ.get("EXIFTOOL_BINARY")
+    or (_bundled_exiftool_path if os_path_exists(_bundled_exiftool_path) else None)
+    or find_executable("exiftool")
+    or ""
+)
 
 ECTRACTION_FRAMES_FOR_CPU = 25
 MULTIPLE_FRAMES_TO_SAVE = 8
@@ -1049,6 +1061,9 @@ def copy_file_metadata(
         original_file_path: str,
         upscaled_file_path: str
 ) -> None:
+    if not EXIFTOOL_EXE_PATH:
+        return
+
     exiftool_cmd = [
         EXIFTOOL_EXE_PATH,
         '-fast',
@@ -1062,7 +1077,7 @@ def copy_file_metadata(
     ]
 
     try:
-        subprocess_run(exiftool_cmd, check=True, shell="False")
+        subprocess_run(exiftool_cmd, check=True, shell=False)
     except:
         pass
 
